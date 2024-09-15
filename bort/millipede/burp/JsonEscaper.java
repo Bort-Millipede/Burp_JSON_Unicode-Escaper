@@ -13,11 +13,13 @@ import burp.api.montoya.ui.*;
 import burp.api.montoya.ui.contextmenu.*;
 import burp.api.montoya.core.*;
 import burp.api.montoya.http.message.*;
+import burp.api.montoya.http.message.requests.*;
+import burp.api.montoya.http.message.responses.*;
 
 import org.json.JSONObject;
 import org.json.JSONWriter;
 
-public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider,ActionListener {
+public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	private MontoyaApi mApi;
 	private Extension bExtension;
 	private Intruder bIntruder;
@@ -46,33 +48,21 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider,Actio
 	
 	@Override
 	public List<Component> provideMenuItems(ContextMenuEvent event) {
-		if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST, InvocationType.MESSAGE_EDITOR_RESPONSE)) {
-			if(event.messageEditorRequestResponse().isPresent()) {
-				MenuItemListener listener = new MenuItemListener(event);
-				JMenuItem unescapeMenuItem = new JMenuItem(UNESCAPE_LABEL);
-				unescapeMenuItem.addActionListener(listener);
-				JMenuItem escapeKeyMenuItem = new JMenuItem(ESCAPE_KEY_LABEL);
-				escapeKeyMenuItem.addActionListener(listener);
-				JMenuItem unicodeEscapeKeyMenuItem = new JMenuItem(UNICODE_ESCAPE_KEY_LABEL);
-				unicodeEscapeKeyMenuItem.addActionListener(listener);
-				JMenuItem unicodeEscapeAllMenuItem = new JMenuItem(UNICODE_ESCAPE_ALL_LABEL);
-				unicodeEscapeAllMenuItem.addActionListener(listener);
-				JMenuItem unicodeEscapeMenuItem = new JMenuItem(UNICODE_ESCAPE_CUSTOM_LABEL);
-				unicodeEscapeMenuItem.addActionListener(listener);
-				/*menuItem.addActionListener(this);
-				/l -> {
-					Range selectionOffsets = event.messageEditorRequestResponse().get().selectionOffsets().get();
-					mApi.logging().logToOutput(String.format("Start index: %s\r\nEnd index: %s", selectionOffsets.startIndexInclusive(), selectionOffsets.endIndexExclusive()));
-				});*/
-				return List.of(unescapeMenuItem,escapeKeyMenuItem,unicodeEscapeKeyMenuItem,unicodeEscapeAllMenuItem,unicodeEscapeMenuItem);
-			}
+		if(event.messageEditorRequestResponse().isPresent()) {
+			MenuItemListener listener = new MenuItemListener(event);
+			JMenuItem unescapeMenuItem = new JMenuItem(UNESCAPE_LABEL);
+			unescapeMenuItem.addActionListener(listener);
+			JMenuItem escapeKeyMenuItem = new JMenuItem(ESCAPE_KEY_LABEL);
+			escapeKeyMenuItem.addActionListener(listener);
+			JMenuItem unicodeEscapeKeyMenuItem = new JMenuItem(UNICODE_ESCAPE_KEY_LABEL);
+			unicodeEscapeKeyMenuItem.addActionListener(listener);
+			JMenuItem unicodeEscapeAllMenuItem = new JMenuItem(UNICODE_ESCAPE_ALL_LABEL);
+			unicodeEscapeAllMenuItem.addActionListener(listener);
+			JMenuItem unicodeEscapeMenuItem = new JMenuItem(UNICODE_ESCAPE_CUSTOM_LABEL);
+			unicodeEscapeMenuItem.addActionListener(listener);
+			return List.of(unescapeMenuItem,escapeKeyMenuItem,unicodeEscapeKeyMenuItem,unicodeEscapeAllMenuItem,unicodeEscapeMenuItem);
 		}
 		return null;
-	}
-	
-	@Override
-	public void actionPerformed(ActionEvent e) {
-	
 	}
 	
 	//un-JSON-escape all characters
@@ -181,24 +171,34 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider,Actio
 			Range selectionOffsets = meHttpRequestResponse.selectionOffsets().get();
 			HttpRequestResponse requestResponse = meHttpRequestResponse.requestResponse();
 			
-			
-			
+			String outputVal = "";
+			if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_VIEWER_REQUEST)) {
+				HttpRequest req = requestResponse.request();
+				ByteArray reqBytes = req.toByteArray();
+				ByteArray selectedVal = reqBytes.subArray(selectionOffsets);
+				outputVal = selectedVal.toString();
+			} else if(event.isFrom(InvocationType.MESSAGE_EDITOR_RESPONSE,InvocationType.MESSAGE_VIEWER_RESPONSE)) {
+				HttpResponse resp = requestResponse.response();
+				ByteArray respBytes = resp.toByteArray();
+				ByteArray selectedVal = respBytes.subArray(selectionOffsets);
+				outputVal = selectedVal.toString();
+			}
 			
 			switch(menuItem.getText()) {
 				case JsonEscaper.UNESCAPE_LABEL:
-					mApi.logging().logToOutput(String.format("%s:\r\nStart index: %s\r\nEnd index: %s\r\n",JsonEscaper.UNESCAPE_LABEL,selectionOffsets.startIndexInclusive(),selectionOffsets.endIndexExclusive()));
+					mApi.logging().logToOutput(String.format("%s: %s\r\n",JsonEscaper.UNESCAPE_LABEL,JsonEscaper.unescapeAllChars(outputVal)));
 					break;
 				case JsonEscaper.ESCAPE_KEY_LABEL:
-					mApi.logging().logToOutput(String.format("%s:\r\nStart index: %s\r\nEnd index: %s\r\n",JsonEscaper.ESCAPE_KEY_LABEL,selectionOffsets.startIndexInclusive(),selectionOffsets.endIndexExclusive()));
+					mApi.logging().logToOutput(String.format("%s: %s\r\n",JsonEscaper.ESCAPE_KEY_LABEL,JsonEscaper.escapeKeyChars(outputVal)));
 					break;
 				case JsonEscaper.UNICODE_ESCAPE_KEY_LABEL:
-					mApi.logging().logToOutput(String.format("%s:\r\nStart index: %s\r\nEnd index: %s\r\n",JsonEscaper.UNICODE_ESCAPE_KEY_LABEL,selectionOffsets.startIndexInclusive(),selectionOffsets.endIndexExclusive()));
+					mApi.logging().logToOutput(String.format("%s: %s\r\n",JsonEscaper.UNICODE_ESCAPE_KEY_LABEL,JsonEscaper.unicodeEscapeKeyChars(outputVal)));
 					break;
 				case JsonEscaper.UNICODE_ESCAPE_ALL_LABEL:
-					mApi.logging().logToOutput(String.format("%s:\r\nStart index: %s\r\nEnd index: %s\r\n",JsonEscaper.UNICODE_ESCAPE_ALL_LABEL,selectionOffsets.startIndexInclusive(),selectionOffsets.endIndexExclusive()));
+					mApi.logging().logToOutput(String.format("%s: %s\r\n",JsonEscaper.UNICODE_ESCAPE_ALL_LABEL,JsonEscaper.unicodeEscapeAllChars(outputVal)));
 					break;
 				case JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL:
-					mApi.logging().logToOutput(String.format("%s:\r\nStart index: %s\r\nEnd index: %s\r\n", JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL,selectionOffsets.startIndexInclusive(), selectionOffsets.endIndexExclusive()));
+					mApi.logging().logToOutput(String.format("%s: %s\r\n",JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL,JsonEscaper.unicodeEscapeChars(outputVal,null)));
 					break;
 			}
 		}
