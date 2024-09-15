@@ -172,34 +172,48 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 			HttpRequestResponse requestResponse = meHttpRequestResponse.requestResponse();
 			
 			String outputVal = "";
+			ByteArray msgBytes = null;
 			if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_VIEWER_REQUEST)) {
 				HttpRequest req = requestResponse.request();
-				ByteArray reqBytes = req.toByteArray();
-				ByteArray selectedVal = reqBytes.subArray(selectionOffsets);
+				msgBytes = req.toByteArray();
+				ByteArray selectedVal = msgBytes.subArray(selectionOffsets);
 				outputVal = selectedVal.toString();
 			} else if(event.isFrom(InvocationType.MESSAGE_EDITOR_RESPONSE,InvocationType.MESSAGE_VIEWER_RESPONSE)) {
 				HttpResponse resp = requestResponse.response();
-				ByteArray respBytes = resp.toByteArray();
-				ByteArray selectedVal = respBytes.subArray(selectionOffsets);
+				msgBytes = resp.toByteArray();
+				ByteArray selectedVal = msgBytes.subArray(selectionOffsets);
 				outputVal = selectedVal.toString();
 			}
 			
-			switch(menuItem.getText()) {
+			String menuItemText = menuItem.getText();
+			switch(menuItemText) {
 				case JsonEscaper.UNESCAPE_LABEL:
-					mApi.logging().logToOutput(String.format("%s: %s\r\n",JsonEscaper.UNESCAPE_LABEL,JsonEscaper.unescapeAllChars(outputVal)));
+					outputVal = JsonEscaper.unescapeAllChars(outputVal);
 					break;
 				case JsonEscaper.ESCAPE_KEY_LABEL:
-					mApi.logging().logToOutput(String.format("%s: %s\r\n",JsonEscaper.ESCAPE_KEY_LABEL,JsonEscaper.escapeKeyChars(outputVal)));
+					outputVal = JsonEscaper.escapeKeyChars(outputVal);
 					break;
 				case JsonEscaper.UNICODE_ESCAPE_KEY_LABEL:
-					mApi.logging().logToOutput(String.format("%s: %s\r\n",JsonEscaper.UNICODE_ESCAPE_KEY_LABEL,JsonEscaper.unicodeEscapeKeyChars(outputVal)));
+					outputVal = JsonEscaper.unicodeEscapeKeyChars(outputVal);
 					break;
 				case JsonEscaper.UNICODE_ESCAPE_ALL_LABEL:
-					mApi.logging().logToOutput(String.format("%s: %s\r\n",JsonEscaper.UNICODE_ESCAPE_ALL_LABEL,JsonEscaper.unicodeEscapeAllChars(outputVal)));
+					outputVal = JsonEscaper.unicodeEscapeAllChars(outputVal);
 					break;
 				case JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL:
-					mApi.logging().logToOutput(String.format("%s: %s\r\n",JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL,JsonEscaper.unicodeEscapeChars(outputVal,null)));
+					outputVal = JsonEscaper.unicodeEscapeChars(outputVal,null);
 					break;
+			}
+			
+			mApi.logging().logToOutput(String.format("%s: %s\r\n",menuItemText,outputVal));
+			
+			int startIndex = selectionOffsets.startIndexInclusive();
+			ByteArray updatedMsg = msgBytes.subArray(0,startIndex);
+			updatedMsg = updatedMsg.withAppended(ByteArray.byteArray(outputVal));
+			updatedMsg = updatedMsg.withAppended(msgBytes.subArray(selectionOffsets.endIndexExclusive(),msgBytes.length()));
+			if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST)) {
+				meHttpRequestResponse.setRequest(HttpRequest.httpRequest(updatedMsg));
+			} else if(event.isFrom(InvocationType.MESSAGE_EDITOR_RESPONSE)) {
+				meHttpRequestResponse.setResponse(HttpResponse.httpResponse(updatedMsg));
 			}
 		}
 	}
