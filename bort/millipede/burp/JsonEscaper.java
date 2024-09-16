@@ -18,6 +18,7 @@ import burp.api.montoya.http.message.responses.*;
 
 import org.json.JSONObject;
 import org.json.JSONWriter;
+import org.json.JSONException;
 
 public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	private MontoyaApi mApi;
@@ -30,10 +31,12 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	static final String UNICODE_ESCAPE_KEY_LABEL = "JSON Unicode-escape key chars";
 	static final String UNICODE_ESCAPE_ALL_LABEL = "JSON Unicode-escape all chars";
 	static final String UNICODE_ESCAPE_CUSTOM_LABEL = "JSON Unicode-escape custom chars";
+	static MontoyaApi smApi;
 	
 	@Override
 	public void initialize(MontoyaApi api) {
 		mApi = api;
+		smApi = api;
 		bExtension = mApi.extension();
 		bExtension.setName("JSON Unicode Escaper");
 		bIntruder = mApi.intruder();
@@ -58,8 +61,9 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 			unicodeEscapeKeyMenuItem.addActionListener(listener);
 			JMenuItem unicodeEscapeAllMenuItem = new JMenuItem(UNICODE_ESCAPE_ALL_LABEL);
 			unicodeEscapeAllMenuItem.addActionListener(listener);
-			JMenuItem unicodeEscapeMenuItem = new JMenuItem(UNICODE_ESCAPE_CUSTOM_LABEL);
-			unicodeEscapeMenuItem.addActionListener(listener);
+			JMenuItem unicodeEscapeMenuItem = new JMenuItem(UNICODE_ESCAPE_CUSTOM_LABEL+" [NOT FULLY IMPLEMENTED]");
+			unicodeEscapeMenuItem.setEnabled(false);
+			//unicodeEscapeMenuItem.addActionListener(listener);
 			return List.of(unescapeMenuItem,escapeKeyMenuItem,unicodeEscapeKeyMenuItem,unicodeEscapeAllMenuItem,unicodeEscapeMenuItem);
 		}
 		return null;
@@ -69,8 +73,22 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	static String unescapeAllChars(String input) {
 		if(input==null) return null;
 		if(input.length()==0) return input;
+		if(!input.contains("\\")) return input;
 		
-		JSONObject jsonObj = new JSONObject(String.format("{\"input\":\"%s\"}",input));
+		JSONObject jsonObj = null;
+		try {
+			String sanitizedInput = input;
+			if(sanitizedInput.contains("\"")) { //todo: need to account for \\" (\\\\") sequences
+				sanitizedInput = sanitizedInput.replace("\\\"","\\u0022");
+				sanitizedInput = sanitizedInput.replace("\"","\\u0022");
+				smApi.logging().logToOutput("sanitizedInput: "+sanitizedInput);
+			}
+			jsonObj = new JSONObject(String.format("{\"input\":\"%s\"}",sanitizedInput));
+		} catch(JSONException jsonE) { //JSON string contains invalid value(s) (likely invalid escape(s))
+			smApi.logging().logToError(input);
+			smApi.logging().logToError(jsonE.getMessage(),jsonE);
+			return input;
+		}
 		return (String) jsonObj.get("input");
 	}
 	
