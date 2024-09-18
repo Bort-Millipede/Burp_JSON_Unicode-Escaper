@@ -1,10 +1,12 @@
 package bort.millipede.burp;
 
 import java.util.List;
+import java.nio.charset.StandardCharsets;
 
 import java.awt.Component;
 import java.awt.event.*;
 import javax.swing.JMenuItem;
+
 
 import burp.api.montoya.*;
 import burp.api.montoya.extension.Extension;
@@ -15,6 +17,7 @@ import burp.api.montoya.core.*;
 import burp.api.montoya.http.message.*;
 import burp.api.montoya.http.message.requests.*;
 import burp.api.montoya.http.message.responses.*;
+import burp.api.montoya.logging.*;
 
 import org.json.JSONObject;
 import org.json.JSONWriter;
@@ -31,12 +34,11 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	static final String UNICODE_ESCAPE_KEY_LABEL = "JSON Unicode-escape key chars";
 	static final String UNICODE_ESCAPE_ALL_LABEL = "JSON Unicode-escape all chars";
 	static final String UNICODE_ESCAPE_CUSTOM_LABEL = "JSON Unicode-escape custom chars";
-	static MontoyaApi smApi;
+	static Logging mLogging;
 	
 	@Override
 	public void initialize(MontoyaApi api) {
 		mApi = api;
-		smApi = api;
 		bExtension = mApi.extension();
 		bExtension.setName("JSON Unicode Escaper");
 		bIntruder = mApi.intruder();
@@ -47,6 +49,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		bIntruder.registerPayloadProcessor(new UnicodeEscapePayloadProcessor());
 		bUI = mApi.userInterface();
 		bUI.registerContextMenuItemsProvider(this);
+		mLogging = mApi.logging();
 	}
 	
 	@Override
@@ -76,20 +79,20 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		if(!input.contains("\\")) return input;
 		
 		JSONObject jsonObj = null;
+		
 		try {
 			String sanitizedInput = input;
-			if(sanitizedInput.contains("\"")) { //todo: need to account for \\" (\\\\") sequences
-				sanitizedInput = sanitizedInput.replace("\\\"","\\u0022");
-				sanitizedInput = sanitizedInput.replace("\"","\\u0022");
-				smApi.logging().logToOutput("sanitizedInput: "+sanitizedInput);
+			if(sanitizedInput.contains("\"")) { 
+				//todo: somehow properly escape " characters for inline JSON input below
+				mLogging.logToOutput("sanitizedInput: "+sanitizedInput);
 			}
 			jsonObj = new JSONObject(String.format("{\"input\":\"%s\"}",sanitizedInput));
+			return (String) jsonObj.get("input");
 		} catch(JSONException jsonE) { //JSON string contains invalid value(s) (likely invalid escape(s))
-			smApi.logging().logToError(input);
-			smApi.logging().logToError(jsonE.getMessage(),jsonE);
-			return input;
+			mLogging.logToError(input);
+			mLogging.logToError(jsonE.getMessage(),jsonE);
 		}
-		return (String) jsonObj.get("input");
+		return input;
 	}
 	
 	//JSON-escape only minimum characters required by JSON RFCs using JSON-Java library
@@ -190,17 +193,19 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 			HttpRequestResponse requestResponse = meHttpRequestResponse.requestResponse();
 			
 			String outputVal = "";
-			ByteArray msgBytes = null;
+			String strMsg = null;
 			if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_VIEWER_REQUEST)) {
-				HttpRequest req = requestResponse.request();
-				msgBytes = req.toByteArray();
-				ByteArray selectedVal = msgBytes.subArray(selectionOffsets);
-				outputVal = selectedVal.toString();
+				strMsg = new String(requestResponse.request().toByteArray().getBytes(),StandardCharsets.UTF_8);
+				mLogging.logToOutput(strMsg);
+				outputVal = strMsg.substring(selectionOffsets.startIndexInclusive(),selectionOffsets.endIndexExclusive());
+				mLogging.logToOutput(mApi.utilities().stringUtils().convertAsciiToHexString(outputVal));
 			} else if(event.isFrom(InvocationType.MESSAGE_EDITOR_RESPONSE,InvocationType.MESSAGE_VIEWER_RESPONSE)) {
-				HttpResponse resp = requestResponse.response();
-				msgBytes = resp.toByteArray();
-				ByteArray selectedVal = msgBytes.subArray(selectionOffsets);
-				outputVal = selectedVal.toString();
+				strMsg = new String(requestResponse.response().toByteArray().getBytes(),StandardCharsets.UTF_8);
+				mLogging.logToOutput(strMsg);
+				outputVal = strMsg.substring(selectionOffsets.startIndexInclusive(),selectionOffsets.endIndexExclusive());
+				mLogging.logToOutput(mApi.utilities().stringUtils().convertAsciiToHexString(outputVal));
+			} else {
+				return;
 			}
 			
 			String menuItemText = menuItem.getText();
@@ -217,22 +222,25 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 				case JsonEscaper.UNICODE_ESCAPE_ALL_LABEL:
 					outputVal = JsonEscaper.unicodeEscapeAllChars(outputVal);
 					break;
-				case JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL:
+				case JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL: //todo: implement escaping only specific chars here.
 					outputVal = JsonEscaper.unicodeEscapeChars(outputVal,null);
 					break;
 			}
 			
-			mApi.logging().logToOutput(String.format("%s: %s\r\n",menuItemText,outputVal));
+			mLogging.logToOutput(String.format("%s: %s\r\n",menuItemText,outputVal));
 			
-			int startIndex = selectionOffsets.startIndexInclusive();
-			ByteArray updatedMsg = msgBytes.subArray(0,startIndex);
-			updatedMsg = updatedMsg.withAppended(ByteArray.byteArray(outputVal));
-			updatedMsg = updatedMsg.withAppended(msgBytes.subArray(selectionOffsets.endIndexExclusive(),msgBytes.length()));
-			if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST)) {
-				meHttpRequestResponse.setRequest(HttpRequest.httpRequest(updatedMsg));
-			} else if(event.isFrom(InvocationType.MESSAGE_EDITOR_RESPONSE)) {
-				meHttpRequestResponse.setResponse(HttpResponse.httpResponse(updatedMsg));
-			}
+			if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_EDITOR_RESPONSE)) {
+				String updatedMsgStr = strMsg.substring(0,selectionOffsets.startIndexInclusive());
+				updatedMsgStr = updatedMsgStr.concat(outputVal);
+				if(selectionOffsets.endIndexExclusive()!=strMsg.length()-1)
+					updatedMsgStr = updatedMsgStr.concat(strMsg.substring(selectionOffsets.endIndexExclusive()));
+				ByteArray updatedMsg = ByteArray.byteArray(updatedMsgStr.getBytes(StandardCharsets.UTF_8));
+				if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST)) {
+					meHttpRequestResponse.setRequest(HttpRequest.httpRequest(updatedMsg));
+				} else if(event.isFrom(InvocationType.MESSAGE_EDITOR_RESPONSE)) {
+					meHttpRequestResponse.setResponse(HttpResponse.httpResponse(updatedMsg));
+				}
+			} //todo: where to display escaped/unescaped values from non-writeable UI elements.
 		}
 	}
 }
