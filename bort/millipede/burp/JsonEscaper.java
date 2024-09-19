@@ -82,8 +82,41 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		
 		try {
 			String sanitizedInput = input;
-			if(sanitizedInput.contains("\"")) { 
-				//todo: somehow properly escape " characters for inline JSON input below
+			if(sanitizedInput.contains("\"")) { //" characters in string to unescape: properly escape " and \ characters for inline JSON if necessary
+				int i=sanitizedInput.length()-1;
+				while(i>=0) {
+					if(sanitizedInput.charAt(i)=='\"') { //" character found
+						int end = i;
+						int backslashCount = 0;
+						if(i>0) { //count \ characters preceding "
+							i--;
+							char prev = sanitizedInput.charAt(i);
+							while(i>=0 && prev=='\\') {
+								backslashCount++;
+								i--;
+								prev = sanitizedInput.charAt(i);
+							}
+							i++;
+						}
+						
+						String quoteBackslashReplace = "";
+						int j=0;
+						while(j<(backslashCount/2)) { //replace escaped \ characters with unicode-escaped \ characters
+							quoteBackslashReplace = quoteBackslashReplace.concat("\\u005c");
+							j++;
+						}
+						quoteBackslashReplace = quoteBackslashReplace.concat("\\u0022"); //unicode-escape " character
+						
+						String prefix = sanitizedInput.substring(0,i);
+						String suffix = "";
+						if(sanitizedInput.length()!=end+1) {
+							suffix = sanitizedInput.substring(end+1,sanitizedInput.length());
+						}
+						sanitizedInput = prefix.concat(quoteBackslashReplace).concat(suffix); //replace original " and \ characters discovered above with unicode-escape characters
+					}
+					i--;
+				}
+				
 				mLogging.logToOutput("sanitizedInput: "+sanitizedInput);
 			}
 			jsonObj = new JSONObject(String.format("{\"input\":\"%s\"}",sanitizedInput));
@@ -196,14 +229,12 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 			String strMsg = null;
 			if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_VIEWER_REQUEST)) {
 				strMsg = new String(requestResponse.request().toByteArray().getBytes(),StandardCharsets.UTF_8);
-				mLogging.logToOutput(strMsg);
+				//mLogging.logToOutput(strMsg);
 				outputVal = strMsg.substring(selectionOffsets.startIndexInclusive(),selectionOffsets.endIndexExclusive());
-				mLogging.logToOutput(mApi.utilities().stringUtils().convertAsciiToHexString(outputVal));
 			} else if(event.isFrom(InvocationType.MESSAGE_EDITOR_RESPONSE,InvocationType.MESSAGE_VIEWER_RESPONSE)) {
 				strMsg = new String(requestResponse.response().toByteArray().getBytes(),StandardCharsets.UTF_8);
-				mLogging.logToOutput(strMsg);
+				//mLogging.logToOutput(strMsg);
 				outputVal = strMsg.substring(selectionOffsets.startIndexInclusive(),selectionOffsets.endIndexExclusive());
-				mLogging.logToOutput(mApi.utilities().stringUtils().convertAsciiToHexString(outputVal));
 			} else {
 				return;
 			}
