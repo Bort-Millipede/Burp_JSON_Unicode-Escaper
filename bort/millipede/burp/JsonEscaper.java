@@ -5,6 +5,7 @@ import burp.api.montoya.extension.Extension;
 import burp.api.montoya.intruder.*;
 import burp.api.montoya.ui.*;
 import burp.api.montoya.ui.contextmenu.*;
+import burp.api.montoya.ui.editor.EditorOptions;
 import burp.api.montoya.core.*;
 import burp.api.montoya.http.message.*;
 import burp.api.montoya.http.message.requests.*;
@@ -12,6 +13,7 @@ import burp.api.montoya.http.message.responses.*;
 import burp.api.montoya.logging.*;
 
 import bort.millipede.burp.payloadprocessing.*;
+import bort.millipede.burp.ui.*;
 
 import java.util.List;
 import java.nio.charset.StandardCharsets;
@@ -30,6 +32,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	private Intruder bIntruder;
 	private UserInterface bUI;
 	
+	public static final String EXTENSION_NAME = "JSON Unicode-Escaper";
 	public static final String UNESCAPE_LABEL = "JSON-unescape";
 	public static final String ESCAPE_KEY_LABEL = "JSON-escape key chars";
 	public static final String UNICODE_ESCAPE_KEY_LABEL = "JSON Unicode-escape key chars";
@@ -41,7 +44,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	public void initialize(MontoyaApi api) {
 		mApi = api;
 		bExtension = mApi.extension();
-		bExtension.setName("JSON Unicode Escaper");
+		bExtension.setName(EXTENSION_NAME);
 		bIntruder = mApi.intruder();
 		bIntruder.registerPayloadProcessor(new UnescapePayloadProcessor());
 		bIntruder.registerPayloadProcessor(new EscapeKeyCharsPayloadProcessor());
@@ -274,7 +277,11 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 				} else if(event.isFrom(InvocationType.MESSAGE_EDITOR_RESPONSE)) {
 					meHttpRequestResponse.setResponse(HttpResponse.httpResponse(updatedMsg));
 				}
-			} //todo: where to display escaped/unescaped values from non-writeable UI elements.
+			} else {
+				EscaperPopup popup = new EscaperPopup(bUI.createRawEditor(EditorOptions.READ_ONLY,EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES),ByteArray.byteArray(outputVal.getBytes(StandardCharsets.UTF_8)));
+				bUI.applyThemeToComponent(popup);
+				popup.setVisible(true);
+			}
 		}
 	}
 }
