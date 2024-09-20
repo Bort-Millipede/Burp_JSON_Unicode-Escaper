@@ -1,10 +1,12 @@
-package bort.millipede.burp;
+package bort.millipede.burp.payloadprocessing;
 
 import burp.api.montoya.intruder.*;
 import burp.api.montoya.core.ByteArray;
 
-class UnicodeEscapePayloadProcessor implements PayloadProcessor {
-	UnicodeEscapePayloadProcessor() {
+import bort.millipede.burp.JsonEscaper;
+
+public class UnicodeEscapePayloadProcessor implements PayloadProcessor {
+	public UnicodeEscapePayloadProcessor() {
 	
 	}
 	
