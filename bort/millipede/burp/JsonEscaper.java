@@ -1,13 +1,5 @@
 package bort.millipede.burp;
 
-import java.util.List;
-import java.nio.charset.StandardCharsets;
-
-import java.awt.Component;
-import java.awt.event.*;
-import javax.swing.JMenuItem;
-
-
 import burp.api.montoya.*;
 import burp.api.montoya.extension.Extension;
 import burp.api.montoya.intruder.*;
@@ -19,6 +11,15 @@ import burp.api.montoya.http.message.requests.*;
 import burp.api.montoya.http.message.responses.*;
 import burp.api.montoya.logging.*;
 
+import bort.millipede.burp.payloadprocessing.*;
+
+import java.util.List;
+import java.nio.charset.StandardCharsets;
+
+import java.awt.Component;
+import java.awt.event.*;
+import javax.swing.JMenuItem;
+
 import org.json.JSONObject;
 import org.json.JSONWriter;
 import org.json.JSONException;
@@ -29,11 +30,11 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	private Intruder bIntruder;
 	private UserInterface bUI;
 	
-	static final String UNESCAPE_LABEL = "JSON-unescape";
-	static final String ESCAPE_KEY_LABEL = "JSON-escape key chars";
-	static final String UNICODE_ESCAPE_KEY_LABEL = "JSON Unicode-escape key chars";
-	static final String UNICODE_ESCAPE_ALL_LABEL = "JSON Unicode-escape all chars";
-	static final String UNICODE_ESCAPE_CUSTOM_LABEL = "JSON Unicode-escape custom chars";
+	public static final String UNESCAPE_LABEL = "JSON-unescape";
+	public static final String ESCAPE_KEY_LABEL = "JSON-escape key chars";
+	public static final String UNICODE_ESCAPE_KEY_LABEL = "JSON Unicode-escape key chars";
+	public static final String UNICODE_ESCAPE_ALL_LABEL = "JSON Unicode-escape all chars";
+	public static final String UNICODE_ESCAPE_CUSTOM_LABEL = "JSON Unicode-escape custom chars";
 	static Logging mLogging;
 	
 	@Override
@@ -73,7 +74,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	}
 	
 	//un-JSON-escape all characters
-	static String unescapeAllChars(String input) {
+	public static String unescapeAllChars(String input) {
 		if(input==null) return null;
 		if(input.length()==0) return input;
 		if(!input.contains("\\")) return input;
@@ -119,7 +120,8 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 				
 				mLogging.logToOutput("sanitizedInput: "+sanitizedInput);
 			}
-			jsonObj = new JSONObject(String.format("{\"input\":\"%s\"}",sanitizedInput));
+			
+			jsonObj = new JSONObject(String.format("{\"input\":\"%s\"}",sanitizedInput)); //Create input JSON inline because unicode-escapes (\\uxxxx) are not interpreted correctly any other way
 			return (String) jsonObj.get("input");
 		} catch(JSONException jsonE) { //JSON string contains invalid value(s) (likely invalid escape(s))
 			mLogging.logToError(input);
@@ -129,7 +131,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	}
 	
 	//JSON-escape only minimum characters required by JSON RFCs using JSON-Java library
-	static String escapeKeyChars(String input) {
+	public static String escapeKeyChars(String input) {
 		if(input==null) return null;
 		if(input.length()==0) return input;
 		
@@ -139,31 +141,32 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	}
 	
 	//JSON Unicode-escape only minimum characters required by JSON RFCs
-	static String unicodeEscapeKeyChars(String input) {
+	public static String unicodeEscapeKeyChars(String input) {
 		if(input==null) return null;
 		if(input.length()==0) return input;
 		
 		String escapedInput = JSONWriter.valueToString(input);
 		escapedInput = escapedInput.substring(1,escapedInput.length()-1);
 		
+		//replace escaped characters with unicode-escaped characters
+		escapedInput = escapedInput.replace("\\\\","\\u005c"); //backslash
 		escapedInput = escapedInput.replace("\\b","\\u0008"); //backspace
 		escapedInput = escapedInput.replace("\\t","\\u0009"); //tab
 		escapedInput = escapedInput.replace("\\n","\\u000a"); //newline
 		escapedInput = escapedInput.replace("\\f","\\u000c"); //form feed
 		escapedInput = escapedInput.replace("\\r","\\u000d"); //carriage return
 		escapedInput = escapedInput.replace("\\\"","\\u0022"); //double quote
-		escapedInput = escapedInput.replace("\\\\","\\u005c"); //backslash
 		return escapedInput;
 	}
 	
 	//JSON Unicode-escape all characters in input
-	static String unicodeEscapeAllChars(String input) {
+	public static String unicodeEscapeAllChars(String input) {
 		return unicodeEscapeChars(input,null);
 	}
 	
 	//JSON Unicode-escape characters passed in charsToEscape.
 	//If charsToEscape is null: Unicode-escape everything
-	static String unicodeEscapeChars(String input,String charsToEscape) {
+	public static String unicodeEscapeChars(String input,String charsToEscape) {
 		if(input==null) return null;
 		if(input.length()==0) return input;
 		

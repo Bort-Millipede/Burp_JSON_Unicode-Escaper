@@ -1,6 +1,10 @@
 # Burp JSON Unicode-Escaper
 
-Burp Extender providing JSON Unicode-escaping/unescaping capabilities
+Burp Extender providing JSON Unicode-escaping/unescaping capabilities. These include:
+* Intruder payload processors for escaping (key characters and all characters) and unescaping
+* On-demand via context menu items.
+
+This extender was developed using the Burp Montoya API. The extender works with both Burp Suite Professional and Burp Suite Community.
 
 ## Usage
 
