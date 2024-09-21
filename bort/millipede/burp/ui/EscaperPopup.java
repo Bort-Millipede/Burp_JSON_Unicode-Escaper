@@ -3,9 +3,15 @@ package bort.millipede.burp.ui;
 import bort.millipede.burp.JsonEscaper;
 
 import burp.api.montoya.core.ByteArray;
+import burp.api.montoya.logging.Logging;
 import burp.api.montoya.ui.editor.RawEditor;
 
-//import java.awt.GridLayout;
+import java.nio.charset.StandardCharsets;
+
+import java.awt.Toolkit;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.StringSelection;
+import java.awt.event.*;
 import javax.swing.BoxLayout;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -17,21 +23,45 @@ public class EscaperPopup extends JFrame {
 	private ByteArray contents;
 	private JButton copyButton;
 	
+	private Logging logger;
+	
 	public EscaperPopup(RawEditor re,ByteArray inContents) {
-		super(String.format("%s: Converted text",JsonEscaper.EXTENSION_NAME));
+		this(re,inContents,null);
+	}
+	
+	public EscaperPopup(RawEditor re,ByteArray inContents,Logging inLogger) {
+		super(String.format("%s: Converted Text",JsonEscaper.EXTENSION_NAME));
 		rawEditor = re;
 		contents = inContents;
+		logger = inLogger;
 		this.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		this.setSize(600,250);
 		this.setLocationRelativeTo(null);
 		rawEditor.setContents(contents);
-		//panel = new JPanel(new GridLayout(2,1));
 		panel = new JPanel();
 		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
 		panel.add(rawEditor.uiComponent());
-		copyButton = new JButton("copy to clipboard (NOT IMPLEMENTED)");
-		copyButton.setEnabled(false);
+		copyButton = new JButton("Copy Full Value To Clipboard");
+		copyButton.addActionListener(new CopyPasteListener());
 		panel.add(copyButton);
 		this.getContentPane().add(panel);
+	}
+	
+	private class CopyPasteListener implements ActionListener {
+		CopyPasteListener() {
+			
+		}
+		
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			String contents = new String(rawEditor.getContents().getBytes(),StandardCharsets.UTF_8);
+			Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
+			StringSelection ss = new StringSelection(contents);
+			cb.setContents(ss,ss);
+			
+			if(logger!=null) {
+				logger.logToOutput(String.format("%s value from pop-up copied to clipboard")); //todo: add timestamps to logs?
+			}
+		}
 	}
 }

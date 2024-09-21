@@ -32,6 +32,12 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	private Intruder bIntruder;
 	private UserInterface bUI;
 	
+	private JMenuItem unescapeMenuItem;
+	private JMenuItem escapeKeyMenuItem;
+	private JMenuItem unicodeEscapeKeyMenuItem;
+	private JMenuItem unicodeEscapeAllMenuItem;
+	private JMenuItem unicodeEscapeMenuItem;
+	
 	public static final String EXTENSION_NAME = "JSON Unicode-Escaper";
 	public static final String UNESCAPE_LABEL = "JSON-unescape";
 	public static final String ESCAPE_KEY_LABEL = "JSON-escape key chars";
@@ -45,30 +51,64 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		mApi = api;
 		bExtension = mApi.extension();
 		bExtension.setName(EXTENSION_NAME);
+		
 		bIntruder = mApi.intruder();
 		bIntruder.registerPayloadProcessor(new UnescapePayloadProcessor());
 		bIntruder.registerPayloadProcessor(new EscapeKeyCharsPayloadProcessor());
 		bIntruder.registerPayloadProcessor(new UnicodeEscapeKeyCharsPayloadProcessor());
 		bIntruder.registerPayloadProcessor(new UnicodeEscapeAllCharsPayloadProcessor());
 		bIntruder.registerPayloadProcessor(new UnicodeEscapePayloadProcessor());
+		
 		bUI = mApi.userInterface();
 		bUI.registerContextMenuItemsProvider(this);
+		unescapeMenuItem = new JMenuItem(UNESCAPE_LABEL);
+		escapeKeyMenuItem = new JMenuItem(ESCAPE_KEY_LABEL);
+		unicodeEscapeKeyMenuItem = new JMenuItem(UNICODE_ESCAPE_KEY_LABEL);
+		unicodeEscapeAllMenuItem = new JMenuItem(UNICODE_ESCAPE_ALL_LABEL);
+		unicodeEscapeMenuItem = new JMenuItem(UNICODE_ESCAPE_CUSTOM_LABEL+" [NOT FULLY IMPLEMENTED]");
+		
 		mLogging = mApi.logging();
 	}
 	
 	@Override
 	public List<Component> provideMenuItems(ContextMenuEvent event) {
 		if(event.messageEditorRequestResponse().isPresent()) {
+			ActionListener[] listeners = unescapeMenuItem.getActionListeners();
+			int i=0;
+			while(i<listeners.length) {
+				unescapeMenuItem.removeActionListener(listeners[i]);
+				i++;
+			}
+			listeners = escapeKeyMenuItem.getActionListeners();
+			i=0;
+			while(i<listeners.length) {
+				escapeKeyMenuItem.removeActionListener(listeners[i]);
+				i++;
+			}
+			listeners = unicodeEscapeKeyMenuItem.getActionListeners();
+			i=0;
+			while(i<listeners.length) {
+				unicodeEscapeKeyMenuItem.removeActionListener(listeners[i]);
+				i++;
+			}
+			listeners = unicodeEscapeAllMenuItem.getActionListeners();
+			i=0;
+			while(i<listeners.length) {
+				unicodeEscapeAllMenuItem.removeActionListener(listeners[i]);
+				i++;
+			}
+			listeners = unicodeEscapeMenuItem.getActionListeners();
+			i=0;
+			while(i<listeners.length) {
+				unicodeEscapeMenuItem.removeActionListener(listeners[i]);
+				i++;
+			}
+						
 			MenuItemListener listener = new MenuItemListener(event);
-			JMenuItem unescapeMenuItem = new JMenuItem(UNESCAPE_LABEL);
 			unescapeMenuItem.addActionListener(listener);
-			JMenuItem escapeKeyMenuItem = new JMenuItem(ESCAPE_KEY_LABEL);
 			escapeKeyMenuItem.addActionListener(listener);
-			JMenuItem unicodeEscapeKeyMenuItem = new JMenuItem(UNICODE_ESCAPE_KEY_LABEL);
 			unicodeEscapeKeyMenuItem.addActionListener(listener);
-			JMenuItem unicodeEscapeAllMenuItem = new JMenuItem(UNICODE_ESCAPE_ALL_LABEL);
 			unicodeEscapeAllMenuItem.addActionListener(listener);
-			JMenuItem unicodeEscapeMenuItem = new JMenuItem(UNICODE_ESCAPE_CUSTOM_LABEL+" [NOT FULLY IMPLEMENTED]");
 			unicodeEscapeMenuItem.setEnabled(false);
 			//unicodeEscapeMenuItem.addActionListener(listener);
 			return List.of(unescapeMenuItem,escapeKeyMenuItem,unicodeEscapeKeyMenuItem,unicodeEscapeAllMenuItem,unicodeEscapeMenuItem);
@@ -83,7 +123,6 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		if(!input.contains("\\")) return input;
 		
 		JSONObject jsonObj = null;
-		
 		try {
 			String sanitizedInput = input;
 			if(sanitizedInput.contains("\"")) { //" characters in string to unescape: properly escape " and \ characters for inline JSON if necessary
@@ -121,12 +160,14 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 					i--;
 				}
 				
+				//todo: add timestamps to logs?
 				mLogging.logToOutput("sanitizedInput: "+sanitizedInput);
 			}
 			
 			jsonObj = new JSONObject(String.format("{\"input\":\"%s\"}",sanitizedInput)); //Create input JSON inline because unicode-escapes (\\uxxxx) are not interpreted correctly any other way
 			return (String) jsonObj.get("input");
 		} catch(JSONException jsonE) { //JSON string contains invalid value(s) (likely invalid escape(s))
+			//todo: add timestamps to logs?
 			mLogging.logToError(input);
 			mLogging.logToError(jsonE.getMessage(),jsonE);
 		}
@@ -228,6 +269,10 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		public void actionPerformed(ActionEvent e) {
 			JMenuItem menuItem = (JMenuItem) e.getSource();
 			MessageEditorHttpRequestResponse meHttpRequestResponse = event.messageEditorRequestResponse().get();
+			
+			if(meHttpRequestResponse.selectionOffsets().isEmpty()) {
+				return; //no text highlighted: do nothing
+			}
 			Range selectionOffsets = meHttpRequestResponse.selectionOffsets().get();
 			HttpRequestResponse requestResponse = meHttpRequestResponse.requestResponse();
 			
@@ -235,11 +280,9 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 			String strMsg = null;
 			if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_VIEWER_REQUEST)) {
 				strMsg = new String(requestResponse.request().toByteArray().getBytes(),StandardCharsets.UTF_8);
-				//mLogging.logToOutput(strMsg);
 				outputVal = strMsg.substring(selectionOffsets.startIndexInclusive(),selectionOffsets.endIndexExclusive());
 			} else if(event.isFrom(InvocationType.MESSAGE_EDITOR_RESPONSE,InvocationType.MESSAGE_VIEWER_RESPONSE)) {
 				strMsg = new String(requestResponse.response().toByteArray().getBytes(),StandardCharsets.UTF_8);
-				//mLogging.logToOutput(strMsg);
 				outputVal = strMsg.substring(selectionOffsets.startIndexInclusive(),selectionOffsets.endIndexExclusive());
 			} else {
 				return;
@@ -264,7 +307,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 					break;
 			}
 			
-			mLogging.logToOutput(String.format("%s: %s\r\n",menuItemText,outputVal));
+			mLogging.logToOutput(String.format("%s: %s\r\n",menuItemText,outputVal)); //todo: add timestamps to logs? or remove this altogether
 			
 			if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_EDITOR_RESPONSE)) {
 				String updatedMsgStr = strMsg.substring(0,selectionOffsets.startIndexInclusive());
