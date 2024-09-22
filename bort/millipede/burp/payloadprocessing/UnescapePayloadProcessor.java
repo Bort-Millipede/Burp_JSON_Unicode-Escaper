@@ -5,6 +5,8 @@ import burp.api.montoya.core.ByteArray;
 
 import bort.millipede.burp.JsonEscaper;
 
+import org.json.JSONException;
+
 public class UnescapePayloadProcessor implements PayloadProcessor {
 	public UnescapePayloadProcessor() {
 	
@@ -17,9 +19,15 @@ public class UnescapePayloadProcessor implements PayloadProcessor {
 	
 	@Override
 	public PayloadProcessingResult processPayload(PayloadData payloadData) {
-		String payload = payloadData.currentPayload().toString();
-		String escapedPayload = JsonEscaper.unescapeAllChars(payload);
-		return PayloadProcessingResult.usePayload(ByteArray.byteArray(escapedPayload));
+		ByteArray currentPayload = payloadData.currentPayload();
+		String payload = currentPayload.toString(); //TODO: specify UTF-8 here?
+		PayloadProcessingResult payloadProcessingResult = null;
+		try {
+			payloadProcessingResult = PayloadProcessingResult.usePayload(ByteArray.byteArray(JsonEscaper.unescapeAllChars(payload))); //TODO: specify UTF-8 here?
+		} catch(JSONException jsonE) {
+			payloadProcessingResult = PayloadProcessingResult.usePayload(currentPayload);
+		}
+		return payloadProcessingResult;
 	}
 }
 

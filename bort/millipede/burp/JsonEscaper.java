@@ -32,6 +32,8 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	private Intruder bIntruder;
 	private UserInterface bUI;
 	
+	static Logging mLogging;
+	
 	private JMenuItem unescapeMenuItem;
 	private JMenuItem escapeKeyMenuItem;
 	private JMenuItem unicodeEscapeKeyMenuItem;
@@ -44,7 +46,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	public static final String UNICODE_ESCAPE_KEY_LABEL = "JSON Unicode-escape key chars";
 	public static final String UNICODE_ESCAPE_ALL_LABEL = "JSON Unicode-escape all chars";
 	public static final String UNICODE_ESCAPE_CUSTOM_LABEL = "JSON Unicode-escape custom chars";
-	static Logging mLogging;
+	public static final String INLINE_JSON_KEY = "input";
 	
 	@Override
 	public void initialize(MontoyaApi api) {
@@ -72,7 +74,8 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	
 	@Override
 	public List<Component> provideMenuItems(ContextMenuEvent event) {
-		if(event.messageEditorRequestResponse().isPresent()) {
+
+		if(event.isFrom(InvocationType.INTRUDER_PAYLOAD_POSITIONS,InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_EDITOR_RESPONSE,InvocationType.MESSAGE_VIEWER_REQUEST,InvocationType.MESSAGE_VIEWER_RESPONSE)) {
 			ActionListener[] listeners = unescapeMenuItem.getActionListeners();
 			int i=0;
 			while(i<listeners.length) {
@@ -111,67 +114,73 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 			unicodeEscapeAllMenuItem.addActionListener(listener);
 			unicodeEscapeMenuItem.setEnabled(false);
 			//unicodeEscapeMenuItem.addActionListener(listener);
+			if(event.isFrom(InvocationType.INTRUDER_PAYLOAD_POSITIONS)) { //Intruder in-place edit not yet implemented, so disable buttons for now
+				unescapeMenuItem.setEnabled(false);
+				escapeKeyMenuItem.setEnabled(false);
+				unicodeEscapeKeyMenuItem.setEnabled(false);
+				unicodeEscapeAllMenuItem.setEnabled(false);
+			}
+			
 			return List.of(unescapeMenuItem,escapeKeyMenuItem,unicodeEscapeKeyMenuItem,unicodeEscapeAllMenuItem,unicodeEscapeMenuItem);
 		}
-		return null;
+		return List.of();
 	}
 	
 	//un-JSON-escape all characters
-	public static String unescapeAllChars(String input) {
+	public static String unescapeAllChars(String input) throws JSONException {
 		if(input==null) return null;
 		if(input.length()==0) return input;
 		if(!input.contains("\\")) return input;
 		
-		JSONObject jsonObj = null;
-		try {
-			String sanitizedInput = input;
-			if(sanitizedInput.contains("\"")) { //" characters in string to unescape: properly escape " and \ characters for inline JSON if necessary
-				int i=sanitizedInput.length()-1;
-				while(i>=0) {
-					if(sanitizedInput.charAt(i)=='\"') { //" character found
-						int end = i;
-						int backslashCount = 0;
-						if(i>0) { //count \ characters preceding "
+		String sanitizedInput = input;
+		if(sanitizedInput.contains("\"")) { //" characters in string to unescape: properly escape " and \ characters for inline JSON if necessary
+			int i=sanitizedInput.length()-1;
+			while(i>=0) {
+				if(sanitizedInput.charAt(i)=='\"') { //" character found
+					int end = i;
+					int backslashCount = 0;
+					if(i>0) { //count \ characters preceding "
+						i--;
+						char prev = sanitizedInput.charAt(i);
+						while(i>=0 && prev=='\\') {
+							backslashCount++;
 							i--;
-							char prev = sanitizedInput.charAt(i);
-							while(i>=0 && prev=='\\') {
-								backslashCount++;
-								i--;
-								prev = sanitizedInput.charAt(i);
-							}
-							i++;
+							prev = sanitizedInput.charAt(i);
 						}
-						
-						String quoteBackslashReplace = "";
-						int j=0;
-						while(j<(backslashCount/2)) { //replace escaped \ characters with unicode-escaped \ characters
-							quoteBackslashReplace = quoteBackslashReplace.concat("\\u005c");
-							j++;
-						}
-						quoteBackslashReplace = quoteBackslashReplace.concat("\\u0022"); //unicode-escape " character
-						
-						String prefix = sanitizedInput.substring(0,i);
-						String suffix = "";
-						if(sanitizedInput.length()!=end+1) {
-							suffix = sanitizedInput.substring(end+1,sanitizedInput.length());
-						}
-						sanitizedInput = prefix.concat(quoteBackslashReplace).concat(suffix); //replace original " and \ characters discovered above with unicode-escape characters
+						i++;
 					}
-					i--;
+					
+					String quoteBackslashReplace = "";
+					int j=0;
+					while(j<(backslashCount/2)) { //replace escaped \ characters with unicode-escaped \ characters
+						quoteBackslashReplace = quoteBackslashReplace.concat("\\u005c");
+						j++;
+					}
+					quoteBackslashReplace = quoteBackslashReplace.concat("\\u0022"); //unicode-escape " character
+					
+					String prefix = sanitizedInput.substring(0,i);
+					String suffix = "";
+					if(sanitizedInput.length()!=end+1) {
+						suffix = sanitizedInput.substring(end+1,sanitizedInput.length());
+					}
+					sanitizedInput = prefix.concat(quoteBackslashReplace).concat(suffix); //replace original " and \ characters discovered above with unicode-escape characters
 				}
-				
-				//todo: add timestamps to logs?
-				mLogging.logToOutput("sanitizedInput: "+sanitizedInput);
+				i--;
 			}
 			
-			jsonObj = new JSONObject(String.format("{\"input\":\"%s\"}",sanitizedInput)); //Create input JSON inline because unicode-escapes (\\uxxxx) are not interpreted correctly any other way
-			return (String) jsonObj.get("input");
-		} catch(JSONException jsonE) { //JSON string contains invalid value(s) (likely invalid escape(s))
 			//todo: add timestamps to logs?
+			mLogging.logToOutput("sanitizedInput: "+sanitizedInput);
+		}
+
+		JSONObject jsonObj = null;
+		try {
+			jsonObj = new JSONObject(String.format("{\"%s\":\"%s\"}",INLINE_JSON_KEY,sanitizedInput)); //Create input JSON inline because unicode-escapes (\\uxxxx) are not interpreted correctly any other way
+		} catch(JSONException jsonE) { //JSON string contains invalid value(s) (likely invalid escape(s)): print stack trace to Extension->Errors tab and throw exception to notify other functions of error
 			mLogging.logToError(input);
 			mLogging.logToError(jsonE.getMessage(),jsonE);
+			throw jsonE;
 		}
-		return input;
+		return (String) jsonObj.get(INLINE_JSON_KEY);
 	}
 	
 	//JSON-escape only minimum characters required by JSON RFCs using JSON-Java library
@@ -214,6 +223,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		if(input==null) return null;
 		if(input.length()==0) return input;
 		
+		//Remove duplicate characters from charsToEscape
 		if(charsToEscape!=null && charsToEscape.length()!=0) {
 			String uniqEscapeChars = "";
 			for(int l=0;l<charsToEscape.length();l++) {
@@ -268,13 +278,23 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		@Override
 		public void actionPerformed(ActionEvent e) {
 			JMenuItem menuItem = (JMenuItem) e.getSource();
-			MessageEditorHttpRequestResponse meHttpRequestResponse = event.messageEditorRequestResponse().get();
-			
-			if(meHttpRequestResponse.selectionOffsets().isEmpty()) {
-				return; //no text highlighted: do nothing
+			HttpRequestResponse requestResponse = null;
+			MessageEditorHttpRequestResponse meHttpRequestResponse = null;
+			Range selectionOffsets = null;
+			if(event.messageEditorRequestResponse().isPresent()) {
+				mLogging.logToOutput("MessageEditorHttpRequestResponse present");
+				
+				meHttpRequestResponse = event.messageEditorRequestResponse().get();
+				
+				if(meHttpRequestResponse.selectionOffsets().isEmpty()) {
+					return; //no text highlighted: do nothing
+				}
+				selectionOffsets = meHttpRequestResponse.selectionOffsets().get();
+				requestResponse = meHttpRequestResponse.requestResponse();
+			} else {
+				mLogging.logToOutput("MessageEditorHttpRequestResponse NOT present");
+				mLogging.logToOutput("selectedRequestResponses() result set length: "+event.selectedRequestResponses().size());
 			}
-			Range selectionOffsets = meHttpRequestResponse.selectionOffsets().get();
-			HttpRequestResponse requestResponse = meHttpRequestResponse.requestResponse();
 			
 			String outputVal = "";
 			String strMsg = null;
@@ -285,13 +305,21 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 				strMsg = new String(requestResponse.response().toByteArray().getBytes(),StandardCharsets.UTF_8);
 				outputVal = strMsg.substring(selectionOffsets.startIndexInclusive(),selectionOffsets.endIndexExclusive());
 			} else {
+				InvocationType invocationType = event.invocationType();
+				mLogging.logToOutput("containsHttpMessage(): "+invocationType.containsHttpMessage());
+				mLogging.logToOutput("containsHttpRequestResponses(): "+invocationType.containsHttpRequestResponses());
 				return;
 			}
 			
+			boolean unescapeError = false;
 			String menuItemText = menuItem.getText();
 			switch(menuItemText) {
 				case JsonEscaper.UNESCAPE_LABEL:
-					outputVal = JsonEscaper.unescapeAllChars(outputVal);
+					try {
+						outputVal = JsonEscaper.unescapeAllChars(outputVal);
+					} catch(JSONException jsonE) {
+						unescapeError = true;
+					}
 					break;
 				case JsonEscaper.ESCAPE_KEY_LABEL:
 					outputVal = JsonEscaper.escapeKeyChars(outputVal);
@@ -310,18 +338,22 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 			mLogging.logToOutput(String.format("%s: %s\r\n",menuItemText,outputVal)); //todo: add timestamps to logs? or remove this altogether
 			
 			if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_EDITOR_RESPONSE)) {
-				String updatedMsgStr = strMsg.substring(0,selectionOffsets.startIndexInclusive());
-				updatedMsgStr = updatedMsgStr.concat(outputVal);
-				if(selectionOffsets.endIndexExclusive()!=strMsg.length()-1)
-					updatedMsgStr = updatedMsgStr.concat(strMsg.substring(selectionOffsets.endIndexExclusive()));
-				ByteArray updatedMsg = ByteArray.byteArray(updatedMsgStr.getBytes(StandardCharsets.UTF_8));
-				if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST)) {
-					meHttpRequestResponse.setRequest(HttpRequest.httpRequest(updatedMsg));
-				} else if(event.isFrom(InvocationType.MESSAGE_EDITOR_RESPONSE)) {
-					meHttpRequestResponse.setResponse(HttpResponse.httpResponse(updatedMsg));
+				if(!unescapeError) {
+					String updatedMsgStr = strMsg.substring(0,selectionOffsets.startIndexInclusive());
+					updatedMsgStr = updatedMsgStr.concat(outputVal);
+					if(selectionOffsets.endIndexExclusive()!=strMsg.length()-1)
+						updatedMsgStr = updatedMsgStr.concat(strMsg.substring(selectionOffsets.endIndexExclusive()));
+					ByteArray updatedMsg = ByteArray.byteArray(updatedMsgStr.getBytes(StandardCharsets.UTF_8));
+					if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST)) {
+						meHttpRequestResponse.setRequest(HttpRequest.httpRequest(updatedMsg));
+					} else if(event.isFrom(InvocationType.MESSAGE_EDITOR_RESPONSE)) {
+						meHttpRequestResponse.setResponse(HttpResponse.httpResponse(updatedMsg));
+					}
 				}
+			} else if(event.isFrom(InvocationType.INTRUDER_PAYLOAD_POSITIONS)) {
+				//TODO: implement this if possible
 			} else {
-				EscaperPopup popup = new EscaperPopup(bUI.createRawEditor(EditorOptions.READ_ONLY,EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES),ByteArray.byteArray(outputVal.getBytes(StandardCharsets.UTF_8)));
+				EscaperPopup popup = new EscaperPopup(bUI.createRawEditor(EditorOptions.READ_ONLY,EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES),ByteArray.byteArray(outputVal.getBytes(StandardCharsets.UTF_8)),unescapeError,mLogging);
 				bUI.applyThemeToComponent(popup);
 				popup.setVisible(true);
 			}
