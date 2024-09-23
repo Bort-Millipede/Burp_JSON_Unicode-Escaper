@@ -5,6 +5,8 @@ import burp.api.montoya.core.ByteArray;
 
 import bort.millipede.burp.JsonEscaper;
 
+import java.nio.charset.StandardCharsets;
+
 public class UnicodeEscapePayloadProcessor implements PayloadProcessor {
 	public UnicodeEscapePayloadProcessor() {
 	

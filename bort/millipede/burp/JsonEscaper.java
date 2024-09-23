@@ -59,7 +59,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		bIntruder.registerPayloadProcessor(new EscapeKeyCharsPayloadProcessor());
 		bIntruder.registerPayloadProcessor(new UnicodeEscapeKeyCharsPayloadProcessor());
 		bIntruder.registerPayloadProcessor(new UnicodeEscapeAllCharsPayloadProcessor());
-		bIntruder.registerPayloadProcessor(new UnicodeEscapePayloadProcessor());
+		//bIntruder.registerPayloadProcessor(new UnicodeEscapePayloadProcessor());
 		
 		bUI = mApi.userInterface();
 		bUI.registerContextMenuItemsProvider(this);
