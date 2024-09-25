@@ -23,13 +23,13 @@ Configure an Intruder attack and select the appropriate extension payload proces
   * control characters (0x00 - 0x1f)
   * double-quotes
   * backslashes
-  * some high-ASCII characters (ex. 0x7f)  
+  * some high-ASCII characters (ex. 0x80-0x9f)  
   "Dedicated" escape sequences are used for characters that have them (ex. \" for double-quote, \n for newline, etc.).
 * ```JSON Unicode-escape key chars```: Only Unicode-escape JSON "key" characters in payload, which includes:
   * control characters (0x00 - 0x1f)
   * double-quotes
   * backslashes
-  * some high-ASCII characters (ex. 0x7f)  
+  * some high-ASCII characters (ex. 0x80-0x9f)  
   All appropriate characters will be escaped using Unicode-escaping (ex. \u0022 for double-quote, \u000a for newline, etc.).
 * ```JSON Unicode-escape all chars```: Unicode-escape all characters in payload (using \uXXXX format, where XXXX is the Unicode hexadecimal value for the character).
 * ```JSON Unicode-escape custom chars```**(NOT FULLY IMPLEMENTED YET)**:  Unicode-escape only specific characters in payload (using \uXXXX format, where XXXX is the Unicode hexadecimal value for the character). The characters that should be escaped are defined in the extender's global settings. An option is also available to automatically include the JSON "key" characters in the list of characters to be Unicode-escaped.
@@ -38,11 +38,11 @@ Configure an Intruder attack and select the appropriate extension payload proces
 
 It appears that "Paste" button (for pasting text from the clipboard) and the "Enter a new item" entry field in the "Payloads" tab of Intruder Attacks do not properly handle the entry of Unicode text. These methods appear to interpret the pasted/entered text as ASCII, and therefore do not interpret the full 16-bit Unicode value. Therefore, payloads containing Unicode text that are added to an attack using the button/field will not be correctly added and will therefore be incorrectly interpreted by the extender. 
 
-On the contrary, the "Load ..." button for loading payload(s) from a file appears to handle Unicode text entry correct. Therefore, it is recommended that any payloads containing Unicode text be saved to a file and added to the attack by loading the file.
+On the contrary, the "Load ..." button for loading payload(s) from a file appears to handle Unicode text entry correct. While Unicode text added via this method will not display correctly in the "Payload settings" menu or in the Intruder Attack results "Payload" column, the text should be interpreted correctly during the attack by Burp and by this extender. Therefore, it is recommended that any payloads containing Unicode text be saved to a file and added to the attack by loading the file.
 
 ## Building
 
-Requires OpenJDK 17+ and Gradle 8+. Lesser versions of OpenJDK and Gradle have not been tested.
+Requires OpenJDK 17+ and Gradle 8+. Higher OpenJDK versions should also work (although this has not been tested). The official Oracle JDK should also work (although this has not been tested). Lesser versions of OpenJDK and Gradle have not been tested.
 
 1. Clone the Burp_JSON_Unicode-Escaper repository.
 2. Open a terminal and navigate to the Burp_JSON_Unicode-Escaper directory.

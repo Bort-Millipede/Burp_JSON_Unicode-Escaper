@@ -2,8 +2,10 @@ package bort.millipede.burp.ui;
 
 import bort.millipede.burp.JsonEscaper;
 
+import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.core.ByteArray;
 import burp.api.montoya.logging.Logging;
+import burp.api.montoya.ui.editor.EditorOptions;
 import burp.api.montoya.ui.editor.RawEditor;
 
 import java.nio.charset.StandardCharsets;
@@ -20,6 +22,7 @@ import javax.swing.JLabel;
 import javax.swing.JButton;
 
 public class EscaperPopup extends JFrame {
+	private MontoyaApi mApi;
 	private JPanel panel;
 	private RawEditor rawEditor;
 	private ByteArray contents;
@@ -27,16 +30,13 @@ public class EscaperPopup extends JFrame {
 	private boolean error;
 	private Logging logger;
 	
-	public EscaperPopup(RawEditor re,ByteArray inContents,boolean inError) {
-		this(re,inContents,inError,null);
-	}
-	
-	public EscaperPopup(RawEditor re,ByteArray inContents,boolean inError,Logging inLogger) {
+	public EscaperPopup(MontoyaApi api,ByteArray inContents,boolean inError) {
 		super(String.format("%s: Converted Text",JsonEscaper.EXTENSION_NAME));
-		rawEditor = re;
+		mApi = api;
+		rawEditor = mApi.userInterface().createRawEditor(EditorOptions.READ_ONLY,EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES);
 		contents = inContents;
 		error = inError;
-		logger = inLogger;
+		logger = mApi.logging();
 		this.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		this.setSize(600,250);
 		this.setLocationRelativeTo(null);
@@ -67,9 +67,7 @@ public class EscaperPopup extends JFrame {
 			StringSelection ss = new StringSelection(contents);
 			cb.setContents(ss,ss);
 			
-			if(logger!=null) {
-				logger.logToOutput(String.format("%s value from pop-up copied to clipboard")); //todo: add timestamps to logs?
-			}
+			logger.logToOutput(String.format("%s value from pop-up copied to clipboard")); //todo: add timestamps to logs?
 		}
 	}
 }

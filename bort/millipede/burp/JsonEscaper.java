@@ -5,7 +5,6 @@ import burp.api.montoya.extension.Extension;
 import burp.api.montoya.intruder.*;
 import burp.api.montoya.ui.*;
 import burp.api.montoya.ui.contextmenu.*;
-import burp.api.montoya.ui.editor.EditorOptions;
 import burp.api.montoya.core.*;
 import burp.api.montoya.http.message.*;
 import burp.api.montoya.http.message.requests.*;
@@ -41,6 +40,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	private JMenuItem unicodeEscapeMenuItem;
 	
 	public static final String EXTENSION_NAME = "JSON Unicode-Escaper";
+	public static final String EXTENSION_VERSION = "0.1";
 	public static final String UNESCAPE_LABEL = "JSON-unescape";
 	public static final String ESCAPE_KEY_LABEL = "JSON-escape key chars";
 	public static final String UNICODE_ESCAPE_KEY_LABEL = "JSON Unicode-escape key chars";
@@ -69,6 +69,10 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		unicodeEscapeAllMenuItem = new JMenuItem(UNICODE_ESCAPE_ALL_LABEL);
 		unicodeEscapeMenuItem = new JMenuItem(UNICODE_ESCAPE_CUSTOM_LABEL+" [NOT FULLY IMPLEMENTED]");
 		
+		EscaperTab escaperTab = new EscaperTab(mApi);
+		bUI.applyThemeToComponent(escaperTab);
+		bUI.registerSuiteTab(EXTENSION_NAME,escaperTab);
+		
 		mLogging = mApi.logging();
 	}
 	
@@ -76,6 +80,14 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	public List<Component> provideMenuItems(ContextMenuEvent event) {
 
 		if(event.isFrom(InvocationType.INTRUDER_PAYLOAD_POSITIONS,InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_EDITOR_RESPONSE,InvocationType.MESSAGE_VIEWER_REQUEST,InvocationType.MESSAGE_VIEWER_RESPONSE)) {
+			//Re-enable menu items
+			if(!unescapeMenuItem.isEnabled()) unescapeMenuItem.setEnabled(true);
+			if(!escapeKeyMenuItem.isEnabled()) escapeKeyMenuItem.setEnabled(true);
+			if(!unicodeEscapeKeyMenuItem.isEnabled()) unicodeEscapeKeyMenuItem.setEnabled(true);
+			if(!unicodeEscapeAllMenuItem.isEnabled()) unicodeEscapeAllMenuItem.setEnabled(true);
+			//if(!unicodeEscapeMenuItem.isEnabled()) unicodeEscapeMenuItem.setEnabled(true);
+						
+			//Remove previous ActionListeners containing old event data
 			ActionListener[] listeners = unescapeMenuItem.getActionListeners();
 			int i=0;
 			while(i<listeners.length) {
@@ -107,7 +119,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 				i++;
 			}
 						
-			MenuItemListener listener = new MenuItemListener(event);
+			EscaperMenuItemListener listener = new EscaperMenuItemListener(mApi,event);
 			unescapeMenuItem.addActionListener(listener);
 			escapeKeyMenuItem.addActionListener(listener);
 			unicodeEscapeKeyMenuItem.addActionListener(listener);
@@ -119,6 +131,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 				escapeKeyMenuItem.setEnabled(false);
 				unicodeEscapeKeyMenuItem.setEnabled(false);
 				unicodeEscapeAllMenuItem.setEnabled(false);
+				unicodeEscapeMenuItem.setEnabled(false);
 			}
 			
 			return List.of(unescapeMenuItem,escapeKeyMenuItem,unicodeEscapeKeyMenuItem,unicodeEscapeAllMenuItem,unicodeEscapeMenuItem);
@@ -133,7 +146,8 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		if(!input.contains("\\")) return input;
 		
 		String sanitizedInput = input;
-		if(sanitizedInput.contains("\"")) { //" characters in string to unescape: properly escape " and \ characters for inline JSON if necessary
+		if(sanitizedInput.contains("\n")) sanitizedInput = sanitizedInput.replace("\n","\\u000a"); //escape raw newline characters if present
+		if(sanitizedInput.contains("\"")) { //" characters in string to potentially unescape: properly escape " and \ characters for inline JSON if necessary
 			int i=sanitizedInput.length()-1;
 			while(i>=0) {
 				if(sanitizedInput.charAt(i)=='\"') { //" character found
@@ -266,98 +280,6 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		}
 		
 		return String.join("",inputArr);
-	}
-	
-	private class MenuItemListener implements ActionListener {
-		private ContextMenuEvent event;
-		
-		MenuItemListener(ContextMenuEvent inEvent) {
-			event = inEvent;
-		}
-		
-		@Override
-		public void actionPerformed(ActionEvent e) {
-			JMenuItem menuItem = (JMenuItem) e.getSource();
-			HttpRequestResponse requestResponse = null;
-			MessageEditorHttpRequestResponse meHttpRequestResponse = null;
-			Range selectionOffsets = null;
-			if(event.messageEditorRequestResponse().isPresent()) {
-				mLogging.logToOutput("MessageEditorHttpRequestResponse present");
-				
-				meHttpRequestResponse = event.messageEditorRequestResponse().get();
-				
-				if(meHttpRequestResponse.selectionOffsets().isEmpty()) {
-					return; //no text highlighted: do nothing
-				}
-				selectionOffsets = meHttpRequestResponse.selectionOffsets().get();
-				requestResponse = meHttpRequestResponse.requestResponse();
-			} else {
-				mLogging.logToOutput("MessageEditorHttpRequestResponse NOT present");
-				mLogging.logToOutput("selectedRequestResponses() result set length: "+event.selectedRequestResponses().size());
-			}
-			
-			String outputVal = "";
-			String strMsg = null;
-			if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_VIEWER_REQUEST)) {
-				strMsg = new String(requestResponse.request().toByteArray().getBytes(),StandardCharsets.UTF_8);
-				outputVal = strMsg.substring(selectionOffsets.startIndexInclusive(),selectionOffsets.endIndexExclusive());
-			} else if(event.isFrom(InvocationType.MESSAGE_EDITOR_RESPONSE,InvocationType.MESSAGE_VIEWER_RESPONSE)) {
-				strMsg = new String(requestResponse.response().toByteArray().getBytes(),StandardCharsets.UTF_8);
-				outputVal = strMsg.substring(selectionOffsets.startIndexInclusive(),selectionOffsets.endIndexExclusive());
-			} else {
-				InvocationType invocationType = event.invocationType();
-				mLogging.logToOutput("containsHttpMessage(): "+invocationType.containsHttpMessage());
-				mLogging.logToOutput("containsHttpRequestResponses(): "+invocationType.containsHttpRequestResponses());
-				return;
-			}
-			
-			boolean unescapeError = false;
-			String menuItemText = menuItem.getText();
-			switch(menuItemText) {
-				case JsonEscaper.UNESCAPE_LABEL:
-					try {
-						outputVal = JsonEscaper.unescapeAllChars(outputVal);
-					} catch(JSONException jsonE) {
-						unescapeError = true;
-					}
-					break;
-				case JsonEscaper.ESCAPE_KEY_LABEL:
-					outputVal = JsonEscaper.escapeKeyChars(outputVal);
-					break;
-				case JsonEscaper.UNICODE_ESCAPE_KEY_LABEL:
-					outputVal = JsonEscaper.unicodeEscapeKeyChars(outputVal);
-					break;
-				case JsonEscaper.UNICODE_ESCAPE_ALL_LABEL:
-					outputVal = JsonEscaper.unicodeEscapeAllChars(outputVal);
-					break;
-				case JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL: //todo: implement escaping only specific chars here.
-					outputVal = JsonEscaper.unicodeEscapeChars(outputVal,null);
-					break;
-			}
-			
-			mLogging.logToOutput(String.format("%s: %s\r\n",menuItemText,outputVal)); //todo: add timestamps to logs? or remove this altogether
-			
-			if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_EDITOR_RESPONSE)) {
-				if(!unescapeError) {
-					String updatedMsgStr = strMsg.substring(0,selectionOffsets.startIndexInclusive());
-					updatedMsgStr = updatedMsgStr.concat(outputVal);
-					if(selectionOffsets.endIndexExclusive()!=strMsg.length()-1)
-						updatedMsgStr = updatedMsgStr.concat(strMsg.substring(selectionOffsets.endIndexExclusive()));
-					ByteArray updatedMsg = ByteArray.byteArray(updatedMsgStr.getBytes(StandardCharsets.UTF_8));
-					if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST)) {
-						meHttpRequestResponse.setRequest(HttpRequest.httpRequest(updatedMsg));
-					} else if(event.isFrom(InvocationType.MESSAGE_EDITOR_RESPONSE)) {
-						meHttpRequestResponse.setResponse(HttpResponse.httpResponse(updatedMsg));
-					}
-				}
-			} else if(event.isFrom(InvocationType.INTRUDER_PAYLOAD_POSITIONS)) {
-				//TODO: implement this if possible
-			} else {
-				EscaperPopup popup = new EscaperPopup(bUI.createRawEditor(EditorOptions.READ_ONLY,EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES),ByteArray.byteArray(outputVal.getBytes(StandardCharsets.UTF_8)),unescapeError,mLogging);
-				bUI.applyThemeToComponent(popup);
-				popup.setVisible(true);
-			}
-		}
 	}
 }
 
