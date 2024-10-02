@@ -4,47 +4,50 @@ import bort.millipede.burp.JsonEscaper;
 
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.core.ByteArray;
-import burp.api.montoya.logging.Logging;
-import burp.api.montoya.ui.editor.EditorOptions;
 import burp.api.montoya.ui.editor.RawEditor;
+import burp.api.montoya.ui.editor.EditorOptions;
 
 import java.nio.charset.StandardCharsets;
 
-import java.awt.GridLayout;
-import java.awt.event.ActionListener;
-import java.awt.event.ActionEvent;
+import java.awt.Color;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
 import javax.swing.*;
 
 import org.json.JSONException;
 
-public class EscaperTab extends JPanel implements ActionListener {
+class EscaperUnescaperTab extends JPanel implements ActionListener {
 	private MontoyaApi mApi;
-	
-	//"Manual Escaper/Unescaper" Tab
-	private JPanel escaperUnescaperPanel;
-	private RawEditor inputArea;
+	//private RawEditor inputArea;
+	private JTextArea inputArea;
 	private JComboBox<String> optionDropdown;
 	private JButton escapeUnescapeButton;
 	private JButton copyClipboardButton;
 	private JButton clearOutputButton;
 	private JLabel errorLabel;
-	private RawEditor outputArea;
+	private Color errorLabelColor;
+	//private RawEditor outputArea;
+	private JTextArea outputArea;
 	
 	private JPanel settingsPanel;
 	
-	public EscaperTab(MontoyaApi api) {
-		super(new GridLayout(1,1));
+	EscaperUnescaperTab(MontoyaApi api) {
+		super();
 		mApi = api;
-		JTabbedPane tabbedPane = new JTabbedPane();
-		
 		//setup "Manual Escaper/Unescaper" Tab
-		escaperUnescaperPanel = new JPanel();
-		escaperUnescaperPanel.setLayout(new BoxLayout(escaperUnescaperPanel, BoxLayout.Y_AXIS));
-		inputArea = mApi.userInterface().createRawEditor(EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES);
-		escaperUnescaperPanel.add(inputArea.uiComponent());
+		this.setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+		//this.setLayout(new GridLayout(3,1));
+		//inputArea = mApi.userInterface().createRawEditor(EditorOptions.WRAP_LINES);
+		//inputArea = mApi.userInterface().createRawEditor(EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES);
+		inputArea = new JTextArea();
+		//inputArea.setSize(inputArea.getWidth(),mApi.userInterface().swingUtils().suiteFrame().getHeight());
+		inputArea.setLineWrap(true);
+		inputArea.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+		//escaperUnescaperPanel.add(inputArea.uiComponent());
+		this.add(inputArea);
 		JPanel middlePanel = new JPanel();
 		optionDropdown = new JComboBox<String>();
 		optionDropdown.addItem(JsonEscaper.UNESCAPE_LABEL);
@@ -62,26 +65,22 @@ public class EscaperTab extends JPanel implements ActionListener {
 		clearOutputButton = new JButton("Clear Output");
 		clearOutputButton.addActionListener(this);
 		errorLabel = new JLabel(new String(""));
+		errorLabelColor = errorLabel.getForeground();
 		
 		middlePanel.add(optionDropdown);
 		middlePanel.add(escapeUnescapeButton);
 		middlePanel.add(copyClipboardButton);
 		middlePanel.add(clearOutputButton);
 		middlePanel.add(errorLabel);
+		this.add(middlePanel);
 		
-		escaperUnescaperPanel.add(middlePanel);
-		outputArea = mApi.userInterface().createRawEditor(EditorOptions.READ_ONLY,EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES);
-		escaperUnescaperPanel.add(outputArea.uiComponent());
-		
-		tabbedPane.addTab("Manual Escaper/Unescaper",new JScrollPane(escaperUnescaperPanel));
-		
-		
-		//setup "Settings" Tab
-		settingsPanel = new JPanel();
-		settingsPanel.add(new JLabel("NOT IMPLEMENTED YET!!!"));
-		tabbedPane.addTab("Settings",new JScrollPane(settingsPanel));
-		
-		this.add(tabbedPane);
+		//outputArea = mApi.userInterface().createRawEditor(EditorOptions.READ_ONLY,EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES);
+		outputArea = new JTextArea();
+		outputArea.setLineWrap(true);
+		outputArea.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+
+		//this.add(outputArea.uiComponent());
+		this.add(outputArea);
 	}
 	
 	//ActionListener method
@@ -105,11 +104,15 @@ public class EscaperTab extends JPanel implements ActionListener {
 			}
 		} else if(source==escapeUnescapeButton) { //Escaper/Unescape button
 			errorLabel.setText("");
-			String outputVal = new String(inputArea.getContents().getBytes(),StandardCharsets.UTF_8);
+			errorLabel.setForeground(errorLabelColor);
+			//String outputVal = new String(inputArea.getContents().copy().getBytes(),StandardCharsets.UTF_8);
+			String outputVal = inputArea.getText();
 			if(outputVal.length()==0) {
-				outputArea.setContents(ByteArray.byteArray(""));
+				//outputArea.setContents(ByteArray.byteArray(""));
+				outputArea.setText("");
 				return;
 			}
+			mApi.logging().logToOutput("EscaperTab actionPerformed inputArea contents: "+outputVal);
 			String selectedItem = (String) optionDropdown.getSelectedItem();
 			switch(selectedItem) {
 				case JsonEscaper.UNESCAPE_LABEL:
@@ -117,7 +120,8 @@ public class EscaperTab extends JPanel implements ActionListener {
 						outputVal = JsonEscaper.unescapeAllChars(outputVal);
 					} catch(JSONException jsonE) {
 						outputVal = "";
-						errorLabel.setText("Error occurred when unescaping input!!!"); //TODO: make label red too
+						errorLabel.setText("Error occurred when unescaping input!!!");
+						errorLabel.setForeground(Color.RED);
 					}
 					break;
 				case JsonEscaper.ESCAPE_KEY_LABEL:
@@ -135,9 +139,11 @@ public class EscaperTab extends JPanel implements ActionListener {
 			}
 			
 			mApi.logging().logToOutput("EscaperTab outputVal: "+outputVal);
-			outputArea.setContents(ByteArray.byteArray(outputVal.getBytes(StandardCharsets.UTF_8)));
+			//outputArea.setContents(ByteArray.byteArray(outputVal.getBytes(StandardCharsets.UTF_8)));
+			outputArea.setText(outputVal);
 		} else if(source==copyClipboardButton) { //Copy to Clipboard button
-			ByteArray contents = outputArea.getContents();
+			//ByteArray contents = outputArea.getContents();
+			String contents = outputArea.getText();
 			if(contents.length()>0) {
 				String strContents = new String(contents.getBytes(),StandardCharsets.UTF_8);
 				Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
@@ -145,7 +151,8 @@ public class EscaperTab extends JPanel implements ActionListener {
 				cb.setContents(ss,ss);
 			}
 		} else if(source==clearOutputButton) { //Clear Output button
-			outputArea.setContents(ByteArray.byteArray(""));
+			//outputArea.setContents(ByteArray.byteArray(""));
+			outputArea.setText("");
 		}
 	}
 }

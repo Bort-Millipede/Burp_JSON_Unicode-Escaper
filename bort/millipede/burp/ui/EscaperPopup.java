@@ -21,7 +21,7 @@ import javax.swing.JPanel;
 import javax.swing.JLabel;
 import javax.swing.JButton;
 
-public class EscaperPopup extends JFrame {
+public class EscaperPopup extends JFrame implements ActionListener {
 	private MontoyaApi mApi;
 	private JPanel panel;
 	private RawEditor rawEditor;
@@ -50,24 +50,16 @@ public class EscaperPopup extends JFrame {
 		}
 		panel.add(rawEditor.uiComponent());
 		copyButton = new JButton("Copy Full Value To Clipboard");
-		copyButton.addActionListener(new CopyPasteListener());
+		copyButton.addActionListener(this);
 		panel.add(copyButton);
 		this.getContentPane().add(panel);
 	}
 	
-	private class CopyPasteListener implements ActionListener {
-		CopyPasteListener() {
-			
-		}
-		
-		@Override
-		public void actionPerformed(ActionEvent e) {
-			String contents = new String(rawEditor.getContents().getBytes(),StandardCharsets.UTF_8);
-			Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
-			StringSelection ss = new StringSelection(contents);
-			cb.setContents(ss,ss);
-			
-			logger.logToOutput(String.format("%s value from pop-up copied to clipboard")); //todo: add timestamps to logs?
-		}
+	@Override
+	public void actionPerformed(ActionEvent e) {
+		Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
+		StringSelection ss = new StringSelection(new String(rawEditor.getContents().getBytes(),StandardCharsets.UTF_8));
+		cb.setContents(ss,ss);
+		logger.logToOutput(String.format("%s value from pop-up copied to clipboard")); //todo: add timestamps to logs?
 	}
 }
