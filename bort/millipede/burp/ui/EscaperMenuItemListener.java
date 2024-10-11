@@ -9,6 +9,7 @@ import burp.api.montoya.ui.contextmenu.*;
 import burp.api.montoya.http.message.*;
 import burp.api.montoya.http.message.requests.*;
 import burp.api.montoya.http.message.responses.*;
+import burp.api.montoya.persistence.Preferences;
 import burp.api.montoya.logging.Logging;
 
 import java.nio.charset.StandardCharsets;
@@ -22,11 +23,13 @@ import org.json.JSONException;
 public class EscaperMenuItemListener implements ActionListener {
 	private MontoyaApi mApi;
 	private ContextMenuEvent event;
+	private Preferences mPreferences;
 	private Logging mLogging;
 	
 	public EscaperMenuItemListener(MontoyaApi api,ContextMenuEvent inEvent) {
 		mApi = api;
 		event = inEvent;
+		mPreferences = mApi.persistence().preferences();
 		mLogging = mApi.logging();
 	}
 	
@@ -86,7 +89,10 @@ public class EscaperMenuItemListener implements ActionListener {
 				outputVal = JsonEscaper.unicodeEscapeAllChars(outputVal);
 				break;
 			case JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL: //todo: implement escaping only specific chars here.
-				outputVal = JsonEscaper.unicodeEscapeChars(outputVal,null);
+				String charsToEscape = mPreferences.getString(JsonEscaper.CHARS_TO_ESCAPE_KEY);
+				if(mPreferences.getBoolean(JsonEscaper.INCLUDE_KEY_CHARS_KEY))
+					charsToEscape = JsonEscaper.KEY_CHARS.concat(charsToEscape);
+				outputVal = JsonEscaper.unicodeEscapeChars(outputVal,charsToEscape);
 				break;
 		}
 		

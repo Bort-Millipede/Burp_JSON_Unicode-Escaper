@@ -42,7 +42,7 @@ public class EscaperPopup extends JFrame implements ActionListener {
 		this.setLocationRelativeTo(null);
 		rawEditor.setContents(contents);
 		panel = new JPanel();
-		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+		panel.setLayout(new BoxLayout(panel,BoxLayout.Y_AXIS));
 		if(error) {
 			JLabel errorLabel = new JLabel("Error occurred when processing input text!!!");
 			errorLabel.setForeground(Color.RED);

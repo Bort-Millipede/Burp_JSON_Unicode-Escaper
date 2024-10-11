@@ -18,8 +18,10 @@ import java.awt.event.ActionEvent;
 import java.awt.GridLayout;
 import java.awt.Color;
 import javax.swing.*;
+import javax.swing.event.DocumentListener;
+import javax.swing.event.DocumentEvent;
 
-class EscaperSettingsTab extends JPanel implements ActionListener {
+class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListener {
 	private MontoyaApi mApi;
 	private Preferences preferences;
 	
@@ -36,7 +38,7 @@ class EscaperSettingsTab extends JPanel implements ActionListener {
 		preferences = mApi.persistence().preferences();
 		
 		JPanel innerPanel = new JPanel();
-		innerPanel.setLayout(new BoxLayout(innerPanel, BoxLayout.Y_AXIS));
+		innerPanel.setLayout(new BoxLayout(innerPanel,BoxLayout.Y_AXIS));
 		
 		//"escape custom chars" settings panel
 		innerPanel.add(new JLabel(String.format("\"%s\" Settings",JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL)));
@@ -45,6 +47,8 @@ class EscaperSettingsTab extends JPanel implements ActionListener {
 		innerSettingsPanel.add(new JLabel("Characters to JSON Unicode-escape:",SwingConstants.RIGHT));
 		charsToEscapeField = new JTextArea("");
 		charsToEscapeField.setLineWrap(true);
+		charsToEscapeField.getDocument().addDocumentListener(this);
+		preferences.setString(JsonEscaper.CHARS_TO_ESCAPE_KEY,charsToEscapeField.getText());
 		innerSettingsPanel.add(new JScrollPane(charsToEscapeField));
 		innerSettingsPanel.add(new JLabel());
 		JPanel buttonPanel = new JPanel(new GridLayout(1,2));
@@ -99,6 +103,25 @@ class EscaperSettingsTab extends JPanel implements ActionListener {
 		} else if(source == fineTuneUnescapingCheckbox) {
 			preferences.setBoolean(JsonEscaper.FINE_TUNE_UNESCAPING_KEY,fineTuneUnescapingCheckbox.isSelected());
 		}
+	}
+	
+	//DocumentListener methods
+	@Override
+	public void changedUpdate(DocumentEvent e) {
+		preferences.setString(JsonEscaper.CHARS_TO_ESCAPE_KEY,charsToEscapeField.getText());
+		//mApi.logging().logToOutput(String.format("%s updated from \"Characters to JSON Unicode-escape\" field (changedUpdate())",JsonEscaper.CHARS_TO_ESCAPE_KEY));
+	}
+	
+	@Override
+	public void insertUpdate(DocumentEvent e) {
+		preferences.setString(JsonEscaper.CHARS_TO_ESCAPE_KEY,charsToEscapeField.getText());
+		//mApi.logging().logToOutput(String.format("%s updated from \"Characters to JSON Unicode-escape\" field (insertUpdate())",JsonEscaper.CHARS_TO_ESCAPE_KEY));
+	}
+	
+	@Override	
+	public void removeUpdate(DocumentEvent e) {
+		preferences.setString(JsonEscaper.CHARS_TO_ESCAPE_KEY,charsToEscapeField.getText());
+		//mApi.logging().logToOutput(String.format("%s updated from \"Characters to JSON Unicode-escape\" field (removeUpdate())",JsonEscaper.CHARS_TO_ESCAPE_KEY));
 	}
 	
 	private void deduplicateEscapeChars() {

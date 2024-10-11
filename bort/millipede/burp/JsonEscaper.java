@@ -75,7 +75,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		escapeKeyMenuItem = new JMenuItem(ESCAPE_KEY_LABEL);
 		unicodeEscapeKeyMenuItem = new JMenuItem(UNICODE_ESCAPE_KEY_LABEL);
 		unicodeEscapeAllMenuItem = new JMenuItem(UNICODE_ESCAPE_ALL_LABEL);
-		unicodeEscapeMenuItem = new JMenuItem(UNICODE_ESCAPE_CUSTOM_LABEL+" [NOT FULLY IMPLEMENTED]");
+		unicodeEscapeMenuItem = new JMenuItem(UNICODE_ESCAPE_CUSTOM_LABEL);
 		
 		escaperTab = new JsonEscaperTab(mApi);
 		bUI.applyThemeToComponent(escaperTab);
@@ -140,8 +140,8 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 			escapeKeyMenuItem.addActionListener(listener);
 			unicodeEscapeKeyMenuItem.addActionListener(listener);
 			unicodeEscapeAllMenuItem.addActionListener(listener);
-			unicodeEscapeMenuItem.setEnabled(false);
-			//unicodeEscapeMenuItem.addActionListener(listener);
+			//unicodeEscapeMenuItem.setEnabled(false);
+			unicodeEscapeMenuItem.addActionListener(listener);
 			if(event.isFrom(InvocationType.INTRUDER_PAYLOAD_POSITIONS)) { //Intruder in-place edit not yet implemented, so disable buttons for now
 				unescapeMenuItem.setEnabled(false);
 				escapeKeyMenuItem.setEnabled(false);
