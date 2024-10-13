@@ -1,15 +1,21 @@
 package bort.millipede.burp.payloadprocessing;
 
+import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.intruder.*;
 import burp.api.montoya.core.ByteArray;
+import burp.api.montoya.persistence.Preferences;
 
 import bort.millipede.burp.JsonEscaper;
 
 import java.nio.charset.StandardCharsets;
 
 public class UnicodeEscapePayloadProcessor implements PayloadProcessor {
-	public UnicodeEscapePayloadProcessor() {
+	private MontoyaApi mApi;
+	private Preferences mPreferences;
 	
+	public UnicodeEscapePayloadProcessor(MontoyaApi api) {
+		mApi = api;
+		mPreferences = mApi.persistence().preferences();
 	}
 	
 	@Override
@@ -19,9 +25,12 @@ public class UnicodeEscapePayloadProcessor implements PayloadProcessor {
 	
 	@Override
 	public PayloadProcessingResult processPayload(PayloadData payloadData) {
-		String payload = payloadData.currentPayload().toString();
+		String charsToEscape = mPreferences.getString(JsonEscaper.CHARS_TO_ESCAPE_KEY);
+		if(mPreferences.getBoolean(JsonEscaper.INCLUDE_KEY_CHARS_KEY))
+			charsToEscape = JsonEscaper.KEY_CHARS.concat(charsToEscape);
 		
-		return null;
+		String escapedPayload = JsonEscaper.unicodeEscapeChars(payloadData.currentPayload().toString(),charsToEscape);
+		return PayloadProcessingResult.usePayload(ByteArray.byteArray(escapedPayload.getBytes(StandardCharsets.UTF_8)));
 	}
 }
 

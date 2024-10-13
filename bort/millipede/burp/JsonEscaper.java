@@ -67,7 +67,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		bIntruder.registerPayloadProcessor(new EscapeKeyCharsPayloadProcessor());
 		bIntruder.registerPayloadProcessor(new UnicodeEscapeKeyCharsPayloadProcessor());
 		bIntruder.registerPayloadProcessor(new UnicodeEscapeAllCharsPayloadProcessor());
-		bIntruder.registerPayloadProcessor(new UnicodeEscapePayloadProcessor());
+		bIntruder.registerPayloadProcessor(new UnicodeEscapePayloadProcessor(mApi));
 		
 		bUI = mApi.userInterface();
 		bUI.registerContextMenuItemsProvider(this);
@@ -155,6 +155,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		return List.of();
 	}
 	
+	//START Unescaper/Escaper methods
 	//un-JSON-escape all characters
 	public static String unescapeAllChars(String input) throws JSONException {
 		if(input==null) return null;
@@ -208,7 +209,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		JSONObject jsonObj = null;
 		try {
 			jsonObj = new JSONObject(String.format("{\"%s\":\"%s\"}",INLINE_JSON_KEY,sanitizedInput)); //Create input JSON inline because unicode-escapes (\\uxxxx) are not interpreted correctly any other way
-		} catch(JSONException jsonE) { //JSON string contains invalid value(s) (likely invalid escape(s)): print stack trace to Extension->Errors tab and throw exception to notify other functions of error
+		} catch(JSONException jsonE) { //JSON string contains invalid value(s) (either invalid escape(s), or characters that should be escaped with inputted): print stack trace to Extension->Errors tab and throw exception to notify other functions of error
 			mLogging.logToError(input);
 			mLogging.logToError(jsonE.getMessage(),jsonE);
 			throw jsonE;
@@ -300,5 +301,6 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		
 		return String.join("",inputArr);
 	}
+	//END Unescaper/Escaper methods
 }
 
