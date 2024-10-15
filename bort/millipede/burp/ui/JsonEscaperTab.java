@@ -30,4 +30,8 @@ public class JsonEscaperTab extends JPanel {
 		
 		this.add(tabbedPane);
 	}
+	
+	public void setInputAreaContents(String contents) {
+		escaperUnescaperTab.setInputAreaContents(contents);
+	}
 }

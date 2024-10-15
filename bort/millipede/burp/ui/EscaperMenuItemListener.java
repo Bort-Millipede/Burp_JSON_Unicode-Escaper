@@ -25,12 +25,19 @@ public class EscaperMenuItemListener implements ActionListener {
 	private ContextMenuEvent event;
 	private Preferences mPreferences;
 	private Logging mLogging;
+	private JsonEscaperTab eTab;
 	
 	public EscaperMenuItemListener(MontoyaApi api,ContextMenuEvent inEvent) {
 		mApi = api;
 		event = inEvent;
 		mPreferences = mApi.persistence().preferences();
 		mLogging = mApi.logging();
+		eTab = null;
+	}
+	
+	public EscaperMenuItemListener(MontoyaApi api,ContextMenuEvent inEvent,JsonEscaperTab tab) {
+		this(api,inEvent);
+		eTab = tab;
 	}
 	
 	@Override
@@ -88,12 +95,16 @@ public class EscaperMenuItemListener implements ActionListener {
 			case JsonEscaper.UNICODE_ESCAPE_ALL_LABEL:
 				outputVal = JsonEscaper.unicodeEscapeAllChars(outputVal);
 				break;
-			case JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL: //todo: implement escaping only specific chars here.
+			case JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL:
 				String charsToEscape = mPreferences.getString(JsonEscaper.CHARS_TO_ESCAPE_KEY);
 				if(mPreferences.getBoolean(JsonEscaper.INCLUDE_KEY_CHARS_KEY))
 					charsToEscape = JsonEscaper.KEY_CHARS.concat(charsToEscape);
 				outputVal = JsonEscaper.unicodeEscapeChars(outputVal,charsToEscape);
 				break;
+			case JsonEscaper.SEND_TO_MANUAL_TAB:
+				if(eTab != null) 
+					eTab.setInputAreaContents(outputVal);
+				return;
 		}
 		
 		mLogging.logToOutput(String.format("%s: %s\r\n",menuItemText,outputVal)); //todo: add timestamps to logs? or remove this altogether

@@ -19,42 +19,58 @@ import java.util.List;
 import java.nio.charset.StandardCharsets;
 
 import java.awt.Component;
-import java.awt.event.*;
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
+import javax.swing.JMenu;
 import javax.swing.JMenuItem;
+import javax.swing.JSeparator;
 
 import org.json.JSONObject;
 import org.json.JSONWriter;
 import org.json.JSONException;
 
 public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
+	//BurpExtension variables
 	private MontoyaApi mApi;
 	private Extension bExtension;
 	private Intruder bIntruder;
 	private UserInterface bUI;
 	
+	//static BurpExtension variables;
 	private static Preferences bPreferences;
 	private static Logging mLogging;
 	
+	//ContextMenuItems
 	private JMenuItem unescapeMenuItem;
 	private JMenuItem escapeKeyMenuItem;
 	private JMenuItem unicodeEscapeKeyMenuItem;
 	private JMenuItem unicodeEscapeAllMenuItem;
 	private JMenuItem unicodeEscapeMenuItem;
+	private JMenuItem sendToManualTabItem;
 	
+	//Custom tab
 	private JsonEscaperTab escaperTab;
 	
+	//START constants
+	//general
 	public static final String EXTENSION_NAME = "JSON Unicode-Escaper";
 	public static final String EXTENSION_VERSION = "0.1";
+	//ContextMenuItems labels
 	public static final String UNESCAPE_LABEL = "JSON-unescape";
 	public static final String ESCAPE_KEY_LABEL = "JSON-escape key chars";
 	public static final String UNICODE_ESCAPE_KEY_LABEL = "JSON Unicode-escape key chars";
 	public static final String UNICODE_ESCAPE_ALL_LABEL = "JSON Unicode-escape all chars";
 	public static final String UNICODE_ESCAPE_CUSTOM_LABEL = "JSON Unicode-escape custom chars";
+	public static final String SEND_TO_MANUAL_TAB = "Send to Manual Escaper/Unescaper";
+	//JSON processing constants
 	public static final String INLINE_JSON_KEY = "input";
 	public static final String KEY_CHARS = "\000\001\002\003\004\005\006\007\010\011\012\013\014\015\016\017\020\021\022\023\024\025\026\027\030\031\032\033\034\035\036\037\"\\";
+	//Preferences keys
 	public static final String CHARS_TO_ESCAPE_KEY = "JsonEscaper.charsToEscape";
 	public static final String INCLUDE_KEY_CHARS_KEY = "JsonEscaper.includeKeyChars";
 	public static final String FINE_TUNE_UNESCAPING_KEY = "JsonEscaper.fineTuneUnescape";
+	public static final String VERBOSE_LOGGING_KEY = "JsonEscaper.verboseLogging";
+	//END constants
 	
 	@Override
 	public void initialize(MontoyaApi api) {
@@ -70,17 +86,19 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		bIntruder.registerPayloadProcessor(new UnicodeEscapePayloadProcessor(mApi));
 		
 		bUI = mApi.userInterface();
+		
+		
 		bUI.registerContextMenuItemsProvider(this);
 		unescapeMenuItem = new JMenuItem(UNESCAPE_LABEL);
 		escapeKeyMenuItem = new JMenuItem(ESCAPE_KEY_LABEL);
 		unicodeEscapeKeyMenuItem = new JMenuItem(UNICODE_ESCAPE_KEY_LABEL);
 		unicodeEscapeAllMenuItem = new JMenuItem(UNICODE_ESCAPE_ALL_LABEL);
 		unicodeEscapeMenuItem = new JMenuItem(UNICODE_ESCAPE_CUSTOM_LABEL);
+		sendToManualTabItem = new JMenuItem(SEND_TO_MANUAL_TAB);
 		
 		escaperTab = new JsonEscaperTab(mApi);
 		bUI.applyThemeToComponent(escaperTab);
 		bUI.registerSuiteTab(EXTENSION_NAME,escaperTab);
-		
 		bPreferences = mApi.persistence().preferences();
 		mLogging = mApi.logging();
 		mLogging.logToOutput(String.format("%s v%s initialized.",EXTENSION_NAME,EXTENSION_VERSION));
@@ -101,7 +119,8 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 			if(!escapeKeyMenuItem.isEnabled()) escapeKeyMenuItem.setEnabled(true);
 			if(!unicodeEscapeKeyMenuItem.isEnabled()) unicodeEscapeKeyMenuItem.setEnabled(true);
 			if(!unicodeEscapeAllMenuItem.isEnabled()) unicodeEscapeAllMenuItem.setEnabled(true);
-			//if(!unicodeEscapeMenuItem.isEnabled()) unicodeEscapeMenuItem.setEnabled(true);
+			if(!unicodeEscapeMenuItem.isEnabled()) unicodeEscapeMenuItem.setEnabled(true);
+			if(!sendToManualTabItem.isEnabled()) sendToManualTabItem.setEnabled(true);
 						
 			//Remove previous ActionListeners containing old event data
 			ActionListener[] listeners = unescapeMenuItem.getActionListeners();
@@ -134,23 +153,32 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 				unicodeEscapeMenuItem.removeActionListener(listeners[i]);
 				i++;
 			}
+			listeners = sendToManualTabItem.getActionListeners();
+			i=0;
+			while(i<listeners.length) {
+				sendToManualTabItem.removeActionListener(listeners[i]);
+				i++;
+			}
 						
-			EscaperMenuItemListener listener = new EscaperMenuItemListener(mApi,event);
+			EscaperMenuItemListener listener = new EscaperMenuItemListener(mApi,event,escaperTab);
 			unescapeMenuItem.addActionListener(listener);
 			escapeKeyMenuItem.addActionListener(listener);
 			unicodeEscapeKeyMenuItem.addActionListener(listener);
 			unicodeEscapeAllMenuItem.addActionListener(listener);
-			//unicodeEscapeMenuItem.setEnabled(false);
 			unicodeEscapeMenuItem.addActionListener(listener);
+			sendToManualTabItem.addActionListener(listener);
 			if(event.isFrom(InvocationType.INTRUDER_PAYLOAD_POSITIONS)) { //Intruder in-place edit not yet implemented, so disable buttons for now
 				unescapeMenuItem.setEnabled(false);
 				escapeKeyMenuItem.setEnabled(false);
 				unicodeEscapeKeyMenuItem.setEnabled(false);
 				unicodeEscapeAllMenuItem.setEnabled(false);
 				unicodeEscapeMenuItem.setEnabled(false);
+				sendToManualTabItem.setEnabled(false);
 			}
+			JMenu manualSubMenu = new JMenu("Manual Escaper/Unescaper");
+			manualSubMenu.add(sendToManualTabItem);
 			
-			return List.of(unescapeMenuItem,escapeKeyMenuItem,unicodeEscapeKeyMenuItem,unicodeEscapeAllMenuItem,unicodeEscapeMenuItem);
+			return List.of(unescapeMenuItem,escapeKeyMenuItem,unicodeEscapeKeyMenuItem,unicodeEscapeAllMenuItem,unicodeEscapeMenuItem,new JSeparator(),manualSubMenu);
 		}
 		return List.of();
 	}
@@ -166,6 +194,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		String sanitizedInput = input;
 		if(bPreferences.getBoolean(FINE_TUNE_UNESCAPING_KEY)) {
 			if(sanitizedInput.contains("\n")) sanitizedInput = sanitizedInput.replace("\n","\\u000a"); //escape raw newline characters if present
+			if(sanitizedInput.contains("\r")) sanitizedInput = sanitizedInput.replace("\r","\\u000d"); //escape raw newline characters if present
 			if(sanitizedInput.contains("\"")) { //" characters in string to potentially unescape: properly escape " and \ characters for inline JSON if necessary
 				int i=sanitizedInput.length()-1;
 				while(i>=0) {
