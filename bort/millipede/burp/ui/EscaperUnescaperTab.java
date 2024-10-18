@@ -1,6 +1,7 @@
 package bort.millipede.burp.ui;
 
 import bort.millipede.burp.JsonEscaper;
+import bort.millipede.burp.settings.JsonEscaperSettings;
 
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.persistence.Preferences;
@@ -29,6 +30,8 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 	private MontoyaApi mApi;
 	private Preferences mPreferences;
 	
+	private JsonEscaperSettings settings;
+	
 	private RawEditor inputArea;
 	//private JTextArea inputArea;
 	private JComboBox<String> optionDropdown;
@@ -48,6 +51,8 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		super();
 		mApi = api;
 		mPreferences = mApi.persistence().preferences();
+		
+		settings = JsonEscaperSettings.getInstance();
 		
 		this.setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 		JPanel inputLabelPanel = new JPanel(new GridLayout(1,2));
@@ -156,10 +161,7 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 					outputVal = JsonEscaper.unicodeEscapeAllChars(outputVal);
 					break;
 				case JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL:
-					String charsToEscape = mPreferences.getString(JsonEscaper.CHARS_TO_ESCAPE_KEY);
-					if(mPreferences.getBoolean(JsonEscaper.INCLUDE_KEY_CHARS_KEY))
-						charsToEscape = JsonEscaper.KEY_CHARS.concat(charsToEscape);
-					outputVal = JsonEscaper.unicodeEscapeChars(outputVal,charsToEscape);
+					outputVal = JsonEscaper.unicodeEscapeChars(outputVal,settings.getCharsToEscape());
 					break;
 			}
 			

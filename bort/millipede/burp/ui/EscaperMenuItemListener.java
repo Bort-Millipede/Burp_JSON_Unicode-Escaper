@@ -1,6 +1,7 @@
 package bort.millipede.burp.ui;
 
 import bort.millipede.burp.JsonEscaper;
+import bort.millipede.burp.settings.JsonEscaperSettings;
 
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.core.*;
@@ -23,7 +24,8 @@ import org.json.JSONException;
 public class EscaperMenuItemListener implements ActionListener {
 	private MontoyaApi mApi;
 	private ContextMenuEvent event;
-	private Preferences mPreferences;
+	private Preferences mPreferences; //to be removed
+	private JsonEscaperSettings settings;
 	private Logging mLogging;
 	private JsonEscaperTab eTab;
 	
@@ -31,6 +33,7 @@ public class EscaperMenuItemListener implements ActionListener {
 		mApi = api;
 		event = inEvent;
 		mPreferences = mApi.persistence().preferences();
+		settings = JsonEscaperSettings.getInstance();
 		mLogging = mApi.logging();
 		eTab = null;
 	}
@@ -96,10 +99,7 @@ public class EscaperMenuItemListener implements ActionListener {
 				outputVal = JsonEscaper.unicodeEscapeAllChars(outputVal);
 				break;
 			case JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL:
-				String charsToEscape = mPreferences.getString(JsonEscaper.CHARS_TO_ESCAPE_KEY);
-				if(mPreferences.getBoolean(JsonEscaper.INCLUDE_KEY_CHARS_KEY))
-					charsToEscape = JsonEscaper.KEY_CHARS.concat(charsToEscape);
-				outputVal = JsonEscaper.unicodeEscapeChars(outputVal,charsToEscape);
+				outputVal = JsonEscaper.unicodeEscapeChars(outputVal,settings.getCharsToEscape());
 				break;
 			case JsonEscaper.SEND_TO_MANUAL_TAB:
 				if(eTab != null) 

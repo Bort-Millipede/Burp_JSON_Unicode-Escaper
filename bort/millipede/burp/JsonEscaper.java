@@ -14,8 +14,11 @@ import burp.api.montoya.logging.*;
 
 import bort.millipede.burp.payloadprocessing.*;
 import bort.millipede.burp.ui.*;
+import bort.millipede.burp.settings.JsonEscaperSettings;
 
 import java.util.List;
+import java.util.Iterator;
+import java.util.stream.IntStream;
 import java.nio.charset.StandardCharsets;
 
 import java.awt.Component;
@@ -48,6 +51,9 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	private JMenuItem unicodeEscapeMenuItem;
 	private JMenuItem sendToManualTabItem;
 	
+	//Settings
+	private JsonEscaperSettings settings;
+	
 	//Custom tab
 	private JsonEscaperTab escaperTab;
 	
@@ -67,9 +73,6 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	public static final String KEY_CHARS = "\000\001\002\003\004\005\006\007\010\011\012\013\014\015\016\017\020\021\022\023\024\025\026\027\030\031\032\033\034\035\036\037\"\\";
 	//Preferences keys
 	public static final String CHARS_TO_ESCAPE_KEY = "JsonEscaper.charsToEscape";
-	public static final String INCLUDE_KEY_CHARS_KEY = "JsonEscaper.includeKeyChars";
-	public static final String FINE_TUNE_UNESCAPING_KEY = "JsonEscaper.fineTuneUnescape";
-	public static final String VERBOSE_LOGGING_KEY = "JsonEscaper.verboseLogging";
 	//END constants
 	
 	@Override
@@ -87,7 +90,6 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		
 		bUI = mApi.userInterface();
 		
-		
 		bUI.registerContextMenuItemsProvider(this);
 		unescapeMenuItem = new JMenuItem(UNESCAPE_LABEL);
 		escapeKeyMenuItem = new JMenuItem(ESCAPE_KEY_LABEL);
@@ -95,6 +97,8 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		unicodeEscapeAllMenuItem = new JMenuItem(UNICODE_ESCAPE_ALL_LABEL);
 		unicodeEscapeMenuItem = new JMenuItem(UNICODE_ESCAPE_CUSTOM_LABEL);
 		sendToManualTabItem = new JMenuItem(SEND_TO_MANUAL_TAB);
+		
+		settings = JsonEscaperSettings.getInstance();
 		
 		escaperTab = new JsonEscaperTab(mApi);
 		bUI.applyThemeToComponent(escaperTab);
@@ -192,7 +196,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		
 		//If enabled in Settings menu: Attempt to prevent errors when processing text that is not actually escaped.
 		String sanitizedInput = input;
-		if(bPreferences.getBoolean(FINE_TUNE_UNESCAPING_KEY)) {
+		if(JsonEscaperSettings.getInstance().getFineTuneUnescaping()) {
 			if(sanitizedInput.contains("\n")) sanitizedInput = sanitizedInput.replace("\n","\\u000a"); //escape raw newline characters if present
 			if(sanitizedInput.contains("\r")) sanitizedInput = sanitizedInput.replace("\r","\\u000d"); //escape raw newline characters if present
 			if(sanitizedInput.contains("\"")) { //" characters in string to potentially unescape: properly escape " and \ characters for inline JSON if necessary
@@ -277,7 +281,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	
 	//JSON Unicode-escape all characters in input
 	public static String unicodeEscapeAllChars(String input) {
-		return unicodeEscapeChars(input,null);
+		return unicodeEscapeChars(input,(int[]) null);
 	}
 	
 	//JSON Unicode-escape characters passed in charsToEscape.
@@ -310,6 +314,45 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 			if(charsToEscape!=null && charsToEscape.length()!=0) {
 				for(int j=0;j<charsToEscape.length();j++) {
 					if(inputArr[i].equals(charsToEscape.substring(j,j+1))) {
+						escaped = Integer.toHexString(inputArr[i].charAt(0));
+						while(escaped.length()<4) {
+							escaped = "0".concat(escaped);
+						}
+						inputArr[i] = String.format("\\u%s",escaped);
+						break;
+					}
+				}
+			} else {
+				escaped = Integer.toHexString(inputArr[i].charAt(0));
+				while(escaped.length()<4) {
+					escaped = "0".concat(escaped);
+				}
+				inputArr[i] = String.format("\\u%s",escaped);
+			}
+			i++;
+		}
+		
+		return String.join("",inputArr);
+	}
+	
+	
+	public static String unicodeEscapeChars(String input,int[] charsToEscape) {
+		if(input==null) return null;
+		if(input.length()==0) return input;
+		
+		String[] inputArr = new String[input.length()];
+		int i=0;
+		while(i<inputArr.length) {
+			inputArr[i] = String.valueOf(input.charAt(i));
+			i++;
+		}
+		
+		i=0;
+		while(i<inputArr.length) {
+			String escaped = null;
+			if(charsToEscape!=null && charsToEscape.length!=0) {
+				for(int j=0;j<charsToEscape.length;j++) {
+					if(inputArr[i].charAt(0) == (char) charsToEscape[j]) {
 						escaped = Integer.toHexString(inputArr[i].charAt(0));
 						while(escaped.length()<4) {
 							escaped = "0".concat(escaped);
