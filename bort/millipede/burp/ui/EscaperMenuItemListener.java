@@ -7,6 +7,7 @@ import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.core.*;
 import burp.api.montoya.ui.*;
 import burp.api.montoya.ui.contextmenu.*;
+import burp.api.montoya.ui.editor.RawEditor;
 import burp.api.montoya.http.message.*;
 import burp.api.montoya.http.message.requests.*;
 import burp.api.montoya.http.message.responses.*;
@@ -27,20 +28,14 @@ public class EscaperMenuItemListener implements ActionListener {
 	private Preferences mPreferences; //to be removed
 	private JsonEscaperSettings settings;
 	private Logging mLogging;
-	private JsonEscaperTab eTab;
+	private RawEditor manualInputArea;
 	
-	public EscaperMenuItemListener(MontoyaApi api,ContextMenuEvent inEvent) {
+	public EscaperMenuItemListener(MontoyaApi api,ContextMenuEvent inEvent,RawEditor inputArea) {
 		mApi = api;
 		event = inEvent;
-		mPreferences = mApi.persistence().preferences();
 		settings = JsonEscaperSettings.getInstance();
-		mLogging = mApi.logging();
-		eTab = null;
-	}
-	
-	public EscaperMenuItemListener(MontoyaApi api,ContextMenuEvent inEvent,JsonEscaperTab tab) {
-		this(api,inEvent);
-		eTab = tab;
+		mLogging = api.logging();
+		manualInputArea = inputArea;
 	}
 	
 	@Override
@@ -102,8 +97,8 @@ public class EscaperMenuItemListener implements ActionListener {
 				outputVal = JsonEscaper.unicodeEscapeChars(outputVal,settings.getCharsToEscape());
 				break;
 			case JsonEscaper.SEND_TO_MANUAL_TAB:
-				if(eTab != null) 
-					eTab.setInputAreaContents(outputVal);
+				manualInputArea.setContents(ByteArray.byteArrayOfLength(0));
+				manualInputArea.setContents(ByteArray.byteArray(outputVal.getBytes(StandardCharsets.UTF_8)));
 				return;
 		}
 		

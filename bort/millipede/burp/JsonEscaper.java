@@ -70,7 +70,6 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	public static final String SEND_TO_MANUAL_TAB = "Send to Manual Escaper/Unescaper";
 	//JSON processing constants
 	public static final String INLINE_JSON_KEY = "input";
-	public static final String KEY_CHARS = "\000\001\002\003\004\005\006\007\010\011\012\013\014\015\016\017\020\021\022\023\024\025\026\027\030\031\032\033\034\035\036\037\"\\";
 	//Preferences keys
 	public static final String CHARS_TO_ESCAPE_KEY = "JsonEscaper.charsToEscape";
 	//END constants
@@ -164,7 +163,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 				i++;
 			}
 						
-			EscaperMenuItemListener listener = new EscaperMenuItemListener(mApi,event,escaperTab);
+			EscaperMenuItemListener listener = new EscaperMenuItemListener(mApi,event,escaperTab.getManualInputArea());
 			unescapeMenuItem.addActionListener(listener);
 			escapeKeyMenuItem.addActionListener(listener);
 			unicodeEscapeKeyMenuItem.addActionListener(listener);
@@ -281,61 +280,11 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	
 	//JSON Unicode-escape all characters in input
 	public static String unicodeEscapeAllChars(String input) {
-		return unicodeEscapeChars(input,(int[]) null);
+		return unicodeEscapeChars(input,null);
 	}
 	
 	//JSON Unicode-escape characters passed in charsToEscape.
-	//If charsToEscape is null: Unicode-escape everything
-	public static String unicodeEscapeChars(String input,String charsToEscape) {
-		if(input==null) return null;
-		if(input.length()==0) return input;
-		
-		//Remove duplicate characters from charsToEscape
-		if(charsToEscape!=null && charsToEscape.length()!=0) {
-			String uniqEscapeChars = "";
-			for(int l=0;l<charsToEscape.length();l++) {
-				String ch = String.valueOf(charsToEscape.charAt(l));
-				if(!uniqEscapeChars.contains(ch))
-					uniqEscapeChars += ch;
-			}
-			charsToEscape = uniqEscapeChars;
-		}
-		
-		String[] inputArr = new String[input.length()];
-		int i=0;
-		while(i<inputArr.length) {
-			inputArr[i] = String.valueOf(input.charAt(i));
-			i++;
-		}
-		
-		i=0;
-		while(i<inputArr.length) {
-			String escaped = null;
-			if(charsToEscape!=null && charsToEscape.length()!=0) {
-				for(int j=0;j<charsToEscape.length();j++) {
-					if(inputArr[i].equals(charsToEscape.substring(j,j+1))) {
-						escaped = Integer.toHexString(inputArr[i].charAt(0));
-						while(escaped.length()<4) {
-							escaped = "0".concat(escaped);
-						}
-						inputArr[i] = String.format("\\u%s",escaped);
-						break;
-					}
-				}
-			} else {
-				escaped = Integer.toHexString(inputArr[i].charAt(0));
-				while(escaped.length()<4) {
-					escaped = "0".concat(escaped);
-				}
-				inputArr[i] = String.format("\\u%s",escaped);
-			}
-			i++;
-		}
-		
-		return String.join("",inputArr);
-	}
-	
-	
+	//If charsToEscape is null or empty: Unicode-escape everything
 	public static String unicodeEscapeChars(String input,int[] charsToEscape) {
 		if(input==null) return null;
 		if(input.length()==0) return input;

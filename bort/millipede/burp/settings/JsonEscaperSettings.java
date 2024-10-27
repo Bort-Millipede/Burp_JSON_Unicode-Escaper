@@ -1,6 +1,11 @@
 package bort.millipede.burp.settings;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.stream.IntStream;
+
+import burp.api.montoya.core.Range;
 
 public class JsonEscaperSettings {
 	//Singleton references
@@ -9,7 +14,6 @@ public class JsonEscaperSettings {
 	
 	//"Unicode-Escape Custom Chars" settings fields
 	private int[] charsToEscape;
-	//private IntStream charsToEscape;
 	//private byte charsInputFormat;
 	
 	//global settings fields
@@ -18,6 +22,7 @@ public class JsonEscaperSettings {
 	
 	//Constants
 	public static final String KEY_CHARS = "\000\001\002\003\004\005\006\007\010\011\012\013\014\015\016\017\020\021\022\023\024\025\026\027\030\031\032\033\034\035\036\037\"\\";
+	public static final int[] KEY_CHARS_INT = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,34,92};
 	/*public static final byte CHARS_INPUT_FORMAT = 0;
 	public static final byte DECIMAL_INPUT_FORMAT = 1;
 	public static final byte HEXADECIMAL_INPUT_FORMAT = 2;*/
@@ -26,7 +31,6 @@ public class JsonEscaperSettings {
 	public static final String INCLUDE_KEY_CHARS_KEY = "JsonEscaper.includeKeyChars";
 	
 	private JsonEscaperSettings() {
-		//charsToEscape = IntStream.empty();
 		charsToEscape = new int[0];
 		//charsInputFormat = CHARS_INPUT_FORMAT;
 		
@@ -66,9 +70,62 @@ public class JsonEscaperSettings {
 	
 	//START mutator methods
 	public void setCharsToEscape(String strCharsToEscape,boolean includeKeyChars) {
+		if(strCharsToEscape != null && strCharsToEscape.length() !=0) {
+			if(includeKeyChars)
+				strCharsToEscape = KEY_CHARS.concat(strCharsToEscape);
+		} else {
+			if(includeKeyChars)
+				strCharsToEscape = KEY_CHARS;
+			else
+				strCharsToEscape = "";
+		}
+		
+		if(strCharsToEscape.length()>0) {
+			charsToEscape = strCharsToEscape.chars().distinct().sorted().toArray();
+		} else {
+			charsToEscape = new int[0];
+		}
+	}
+	
+	public void setCharsToEscape(Range[] ranges,boolean includeKeyChars) {
+		if(ranges==null) charsToEscape = new int[0];
+		if(ranges.length==0) charsToEscape = new int[0];
+		
+		int outArrLength = 0;
 		if(includeKeyChars)
-			strCharsToEscape = KEY_CHARS.concat(strCharsToEscape);
-		charsToEscape = strCharsToEscape.chars().distinct().sorted().toArray();
+			outArrLength+=KEY_CHARS_INT.length;
+		int i=0;
+		while(i<ranges.length) {
+			if(ranges[i]!=null) {
+				outArrLength += (ranges[i].endIndexExclusive()-ranges[i].startIndexInclusive());
+			}
+			i++;
+		}
+		
+		
+		int[] outArr = new int[outArrLength];
+		int outIndex = 0;
+		if(includeKeyChars) {
+			i=0;
+			while(i<KEY_CHARS_INT.length) {
+				outArr[outIndex] = KEY_CHARS_INT[i];
+				outIndex++;
+				i++;
+			}
+		}
+		i=0;
+		while(i<ranges.length) {
+			int[] rangeArr = IntStream.range(ranges[i].startIndexInclusive(),ranges[i].endIndexExclusive()).toArray();
+			int j=0;
+			while(j<rangeArr.length) {
+				outArr[outIndex] = rangeArr[j];
+				outIndex++;
+				j++;
+			}
+			i++;
+		}
+		
+		charsToEscape = IntStream.of(outArr).distinct().sorted().toArray();
 	}
 	
 	/*public void setInputFormat(byte input) {

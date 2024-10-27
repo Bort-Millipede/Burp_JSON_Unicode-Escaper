@@ -33,7 +33,6 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 	private JsonEscaperSettings settings;
 	
 	private RawEditor inputArea;
-	//private JTextArea inputArea;
 	private JComboBox<String> optionDropdown;
 	private JButton escapeUnescapeButton;
 	private JButton clearInputButton;
@@ -43,7 +42,6 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 	private JLabel errorLabel;
 	private Color errorLabelColor;
 	private RawEditor outputArea;
-	//private JTextArea outputArea;
 	
 	private JPanel settingsPanel;
 	
@@ -54,6 +52,7 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		
 		settings = JsonEscaperSettings.getInstance();
 		
+		//input area
 		this.setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 		JPanel inputLabelPanel = new JPanel(new GridLayout(1,2));
 		inputLabelPanel.add(new JLabel("Input:",SwingConstants.LEFT));
@@ -61,14 +60,12 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		this.add(inputLabelPanel);
 		inputArea = mApi.userInterface().createRawEditor(EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES);
 		inputArea.setContents(ByteArray.byteArrayOfLength(0));
-		//inputArea = mApi.userInterface().createRawEditor(EditorOptions.READ_ONLY,EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES);
 		this.add(inputArea.uiComponent());
-		/*inputArea = new JTextArea();
-		inputArea.setLineWrap(true);
-		inputArea.setBorder(BorderFactory.createLineBorder(Color.BLACK));
-		this.add(inputArea);*/
 		
+		//middle button panel
 		JPanel middlePanel = new JPanel();
+		errorLabel = new JLabel(new String(""));
+		errorLabelColor = errorLabel.getForeground();
 		optionDropdown = new JComboBox<String>();
 		optionDropdown.addItem(JsonEscaper.UNESCAPE_LABEL);
 		optionDropdown.addItem(JsonEscaper.ESCAPE_KEY_LABEL);
@@ -87,8 +84,7 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		copyClipboardButton.addActionListener(this);
 		clearOutputButton = new JButton("Clear Output");
 		clearOutputButton.addActionListener(this);
-		errorLabel = new JLabel(new String(""));
-		errorLabelColor = errorLabel.getForeground();
+		middlePanel.add(errorLabel);
 		middlePanel.add(optionDropdown);
 		middlePanel.add(escapeUnescapeButton);
 		middlePanel.add(new JLabel("    "));
@@ -96,9 +92,9 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		middlePanel.add(pasteClipboardButton);
 		middlePanel.add(copyClipboardButton);
 		middlePanel.add(clearOutputButton);
-		middlePanel.add(errorLabel);
 		this.add(middlePanel);
 		
+		//output area
 		JPanel outputLabelPanel = new JPanel(new GridLayout(1,2));
 		outputLabelPanel.add(new JLabel("Output:",SwingConstants.LEFT));
 		outputLabelPanel.add(new JLabel());
@@ -107,9 +103,8 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		this.add(outputArea.uiComponent());
 	}
 	
-	void setInputAreaContents(String contents) {
-		inputArea.setContents(ByteArray.byteArrayOfLength(0));
-		inputArea.setContents(ByteArray.byteArray(contents.getBytes(StandardCharsets.UTF_8)));
+	RawEditor getInputArea() {
+		return inputArea;
 	}
 	
 	//ActionListener method
@@ -222,3 +217,4 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		}
 	}
 }
+

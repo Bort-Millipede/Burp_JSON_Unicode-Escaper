@@ -5,35 +5,40 @@ import bort.millipede.burp.settings.JsonEscaperSettings;
 
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.core.ByteArray;
+import burp.api.montoya.core.Range;
 import burp.api.montoya.ui.editor.RawEditor;
 import burp.api.montoya.ui.editor.EditorOptions;
-import burp.api.montoya.persistence.Preferences;
+import burp.api.montoya.logging.Logging;
+
+import java.util.ArrayList;
+import java.util.Arrays;
 
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.DataFlavor;
-
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 import java.awt.GridLayout;
 import java.awt.Color;
+import java.awt.Dimension;
 import javax.swing.*;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.DocumentEvent;
 
 class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListener {
 	private MontoyaApi mApi;
-	private Preferences preferences; //to be removed
+	private Logging mLogging;
 	private JsonEscaperSettings settings;
 	private byte inputFormat;
 	
 	//"Characters to JSON Unicode-escape" settings
 	private JRadioButton charsFormatButton;
-	private JRadioButton decRangesFormatButton;
 	private JRadioButton hexRangesFormatButton;
 	private JLabel charsToEscapeLabel;
 	private JTextArea charsToEscapeField;
+	private JLabel errorLabel;
+	private JButton applyButton;
 	private JButton pasteButton;
 	private JButton deduplicateButton;
 	private JCheckBox includeKeyCharsCheckbox;
@@ -44,13 +49,12 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 	
 	//Constants
 	private static final byte CHARS_INPUT_FORMAT = 0;
-	private static final byte DECIMAL_INPUT_FORMAT = 1;
-	private static final byte HEXADECIMAL_INPUT_FORMAT = 2;
+	private static final byte HEXADECIMAL_INPUT_FORMAT = 1;
 	
 	EscaperSettingsTab(MontoyaApi api) {
 		super();
 		mApi = api;
-		preferences = mApi.persistence().preferences();
+		mLogging = mApi.logging();
 		
 		settings = JsonEscaperSettings.getInstance();
 		inputFormat = CHARS_INPUT_FORMAT;
@@ -65,41 +69,38 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 		innerSettingsPanel.add(new JLabel("Define characters for escaping as:",SwingConstants.RIGHT));
 		
 		//format radio buttons
-		charsFormatButton = new JRadioButton("Charaters",true);
-		//charsFormatButton.setActionCommand("CHARS");
-		///charsFormatButton.addActionListener(this);
-		decRangesFormatButton = new JRadioButton("Decimal numbers/ranges",false);
-		//decRangesFormatButton.setActionCommand("DEC");
-		///decRangesFormatButton.addActionListener(this);
-		decRangesFormatButton.setEnabled(false);
+		charsFormatButton = new JRadioButton("Characters",true);
+		charsFormatButton.addActionListener(this);
 		hexRangesFormatButton = new JRadioButton("Hexdecimal numbers/ranges",false);
-		//hexRangesFormatButton.setActionCommand("HEX");
-		///hexRangesFormatButton.addActionListener(this);
-		hexRangesFormatButton.setEnabled(false);
+		hexRangesFormatButton.addActionListener(this);
+		//hexRangesFormatButton.setEnabled(false);
 		ButtonGroup bg = new ButtonGroup();
 		bg.add(charsFormatButton);
-		bg.add(decRangesFormatButton);
 		bg.add(hexRangesFormatButton);
-		JPanel formatButtonPanel = new JPanel(new GridLayout(3,1));
+		JPanel formatButtonPanel = new JPanel(new GridLayout(2,1));
 		formatButtonPanel.add(charsFormatButton);
-		formatButtonPanel.add(decRangesFormatButton);
 		formatButtonPanel.add(hexRangesFormatButton);
 		innerSettingsPanel.add(formatButtonPanel);
 		
-		//all remaining elements
+		//all remaining "escape custom chars" elements
 		charsToEscapeLabel = new JLabel("Characters to JSON Unicode-escape:",SwingConstants.RIGHT);
 		innerSettingsPanel.add(charsToEscapeLabel);
 		charsToEscapeField = new JTextArea("");
 		charsToEscapeField.setLineWrap(true);
 		charsToEscapeField.getDocument().addDocumentListener(this);
-		preferences.setString(JsonEscaper.CHARS_TO_ESCAPE_KEY,charsToEscapeField.getText());
+		charsToEscapeField.setMaximumSize(new Dimension(mApi.userInterface().swingUtils().suiteFrame().getWidth(),mApi.userInterface().swingUtils().suiteFrame().getHeight()));
 		innerSettingsPanel.add(new JScrollPane(charsToEscapeField));
-		innerSettingsPanel.add(new JLabel());
-		JPanel buttonPanel = new JPanel(new GridLayout(1,2));
+		errorLabel = new JLabel();
+		innerSettingsPanel.add(errorLabel);
+		JPanel buttonPanel = new JPanel(new GridLayout(1,3));
+		applyButton = new JButton("Changes Auto-Applied");
+		applyButton.addActionListener(this);
+		applyButton.setEnabled(false);
+		buttonPanel.add(applyButton);
 		pasteButton = new JButton("Paste");
 		pasteButton.addActionListener(this);
 		buttonPanel.add(pasteButton);
-		deduplicateButton = new JButton("Deduplicate");
+		deduplicateButton = new JButton("Deduplicate & Sort");
 		deduplicateButton.addActionListener(this);
 		buttonPanel.add(deduplicateButton);
 		innerSettingsPanel.add(buttonPanel);
@@ -107,7 +108,9 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 		includeKeyCharsCheckbox = new JCheckBox("",true);
 		includeKeyCharsCheckbox.addActionListener(this);
 		innerSettingsPanel.add(includeKeyCharsCheckbox);
+		innerSettingsPanel.setMaximumSize(new Dimension(mApi.userInterface().swingUtils().suiteFrame().getWidth(),mApi.userInterface().swingUtils().suiteFrame().getHeight()));
 		innerPanel.add(innerSettingsPanel);
+
 		
 		//separators between settings panels
 		innerPanel.add(new JLabel(" "));
@@ -125,9 +128,207 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 		verboseLoggingCheckbox = new JCheckBox("",settings.getVerboseLogging());
 		verboseLoggingCheckbox.addActionListener(this);
 		innerGlobalPanel.add(verboseLoggingCheckbox);
+		innerGlobalPanel.setMaximumSize(new Dimension(mApi.userInterface().swingUtils().suiteFrame().getWidth(),mApi.userInterface().swingUtils().suiteFrame().getHeight()));
 		innerPanel.add(innerGlobalPanel);
 		
 		this.add(innerPanel);
+	}
+	
+	private void deduplicateEscapeChars() {
+		if(inputFormat != CHARS_INPUT_FORMAT) return;
+		
+		String charsToEscape = charsToEscapeField.getText();
+		if(charsToEscape == null) return;
+		if(charsToEscape.length() == 0) return;
+		
+		pasteButton.setEnabled(false);
+		deduplicateButton.setEnabled(false);
+		charsToEscapeField.setEditable(false);
+		charsToEscapeField.setText("Deduplicating and Sorting...");
+		
+		//Remove duplicate characters
+		if(charsToEscape!=null && charsToEscape.length()!=0) {
+			String uniqEscapeChars = "";
+			for(int l=0;l<charsToEscape.length();l++) {
+				String ch = String.valueOf(charsToEscape.charAt(l));
+				if(!uniqEscapeChars.contains(ch))
+					uniqEscapeChars += ch;
+			}
+			char[] uniqChars = uniqEscapeChars.toCharArray();
+			Arrays.sort(uniqChars);
+			uniqEscapeChars = new String(uniqChars);
+			
+			charsToEscapeField.setCaretPosition(0);
+			charsToEscapeField.setText("");
+			charsToEscapeField.setText(uniqEscapeChars);
+
+			settings.setCharsToEscape(uniqEscapeChars,includeKeyCharsCheckbox.isSelected());
+		}
+		
+		charsToEscapeField.setEditable(true);
+		pasteButton.setEnabled(true);
+		deduplicateButton.setEnabled(true);
+	}
+	
+	private Range[] convertCharsToRanges(String inText) {
+		if(inText==null) return new Range[0];
+		if(inText.length()==0) return new Range[0];
+		
+		//Remove duplicate characters
+		String uniqChars = "";
+		for(int l=0;l<inText.length();l++) {
+			String ch = String.valueOf(inText.charAt(l));
+			if(!uniqChars.contains(ch))
+				uniqChars += ch;
+		}
+		inText = uniqChars;
+		
+		//sort characters
+		char[] inTextChars = inText.toCharArray();
+		Arrays.sort(inTextChars);
+		inText = new String(inTextChars);
+		
+		String[] inputArr = new String[inText.length()];
+		int i=0;
+		while(i<inputArr.length) {
+			inputArr[i] = String.valueOf(inText.charAt(i));
+			i++;
+		}
+		
+		ArrayList<Range> outputList = new ArrayList<Range>();
+		i=0;
+		while(i<inputArr.length) {
+			char curr = inputArr[i].charAt(0);
+			int j=1;
+			char next = curr;
+			while((i+j)<inputArr.length) {
+				next = inputArr[i+j].charAt(0);
+				if(next-curr!=j) {
+					next = inputArr[i+j-1].charAt(0);
+					break;
+				}
+				j++;
+			}
+			
+			if(next == curr) {
+				outputList.add(Range.range((int) curr,(int) curr+1));
+			} else {
+				outputList.add(Range.range((int) curr,(int) next+1));
+				i+=j-1;
+			}
+			i++;
+		}
+		
+		Range[] outArr = new Range[outputList.size()];
+		return outputList.toArray(outArr);
+	}
+	
+	private String convertCharsToRangesText(Range[] inRanges) {
+		if(inRanges==null) return "";
+		
+		ArrayList<String> outputList = new ArrayList<String>();
+		for(int i=0;i<inRanges.length;i++) {
+			if(inRanges[i] != null) {
+				int start = inRanges[i].startIndexInclusive();
+				int end = inRanges[i].endIndexExclusive()-1;
+				if(start>end) { //may not even be necessary, but included for good measure
+					start = inRanges[i].endIndexExclusive();
+					end = inRanges[i].startIndexInclusive()-1;
+				}
+				
+				String escaped = Integer.toHexString(start);
+				while(escaped.length()<4) {
+						escaped = "0".concat(escaped);
+				}
+				
+				if(start==end) {
+					outputList.add(escaped);
+				} else {
+					String nextEscaped = Integer.toHexString(end);
+					while(nextEscaped.length()<4) {
+						nextEscaped = "0".concat(nextEscaped);
+					}
+					
+					outputList.add(String.format("%s-%s",escaped,nextEscaped));
+				}
+			}
+		}
+		
+		return String.join(",",outputList.toArray(new String[outputList.size()]));
+	}
+	
+	private Range[] convertRangesTextToRanges(String inText) {
+		if(inText == null) return new Range[0];
+		if(inText.length() == 0) return new Range[0];
+		
+		ArrayList<Range> outputList = new ArrayList<Range>();
+		inText = inText.strip();
+		String[] inTextSplit = inText.split(",");
+		String output = "";
+		for(int i=0;i<inTextSplit.length;i++) {
+			String hex = inTextSplit[i].strip();
+			if(hex.contains("-")) {
+				//need to eventually do error handling here for invalid hex
+				String[] range = hex.split("-",2);
+				int start = Integer.parseInt(range[0],16); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
+				int end = Integer.parseInt(range[1],16); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
+				if(start>end) {
+					start = end;
+					end = Integer.parseInt(range[1],16); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
+				}
+				
+				outputList.add(Range.range((int) start,(int) end+1));
+			} else {
+				int start = Integer.parseInt(hex,16); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
+				outputList.add(Range.range(start,start+1));
+			}
+		}
+		
+		Range[] outArr = new Range[outputList.size()];
+		return outputList.toArray(outArr);
+	}
+	
+	private String convertRangesToChars(String inText) {
+		if(inText==null) return null;
+		if(inText.length()==0) return inText;
+		
+		inText = inText.strip();
+		String[] inTextSplit = inText.split(",");
+		String output = "";
+		for(int i=0;i<inTextSplit.length;i++) {
+			String hex = inTextSplit[i].strip();
+			if(hex.contains("-")) {
+				//need to eventually do error handling here for invalid hex
+				String[] range = hex.split("-",2);
+				int start = Integer.parseInt(range[0],16); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
+				int end = Integer.parseInt(range[1],16); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
+				if(start>end) {
+					start = end;
+					end = Integer.parseInt(range[1],16); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
+				}
+				String[] outChars = new String[(end-start)+1];
+				int j=0;
+				while(start<=end) {
+					outChars[j] = String.valueOf((char) start);
+					start++;
+					j++;
+				}
+				output = output.concat(String.join("",outChars));
+			} else {
+				output = output.concat(String.valueOf((char) Integer.parseInt(hex,16))); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
+			}
+		}
+		
+		//remove duplicate characters
+		String uniqChars = "";
+		for(int l=0;l<output.length();l++) {
+			String ch = String.valueOf(output.charAt(l));
+			if(!uniqChars.contains(ch))
+				uniqChars += ch;
+		}
+		output = uniqChars;
+		
+		return output;
 	}
 	
 	//ActionListener method
@@ -136,31 +337,91 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 		Object source = e.getSource();
 		
 		if(source == charsFormatButton) {
-			inputFormat = CHARS_INPUT_FORMAT;
-			charsToEscapeLabel.setText("Characters to JSON Unicode-escape:");
-			deduplicateButton.setEnabled(true);
-		} else if(source == decRangesFormatButton) {
-			inputFormat = DECIMAL_INPUT_FORMAT;
-			charsToEscapeLabel.setText("Character Decimal Ranges to JSON Unicode-escape:");
-			deduplicateButton.setEnabled(false);
+			if(inputFormat != CHARS_INPUT_FORMAT) {
+				charsToEscapeLabel.setText("Characters to JSON Unicode-escape:");
+				String fieldText = charsToEscapeField.getText();
+				charsToEscapeField.setText("Converting Hexadecimal Numbers/Ranges to Characters...");
+				new Thread(new Runnable() {
+					public void run() {
+						charsToEscapeField.setText(convertRangesToChars(fieldText));
+						inputFormat = CHARS_INPUT_FORMAT;
+						deduplicateButton.setEnabled(true);
+						settings.setCharsToEscape(charsToEscapeField.getText(),includeKeyCharsCheckbox.isSelected());
+						mLogging.logToOutput("Chars to escape field set to: "+charsToEscapeField.getText());
+						applyButton.setText("Changes Auto-Applied");
+						applyButton.setEnabled(false);
+					}
+				}).start();
+			}
 		} else if (source == hexRangesFormatButton) {
-			inputFormat = HEXADECIMAL_INPUT_FORMAT;
-			charsToEscapeLabel.setText("Character Hexadecimal Ranges to JSON Unicode-escape:");
-			deduplicateButton.setEnabled(false);
+			if(inputFormat != HEXADECIMAL_INPUT_FORMAT) {
+				charsToEscapeLabel.setText("Character Hexadecimal Ranges to JSON Unicode-escape:");
+				String fieldText = charsToEscapeField.getText();
+				charsToEscapeField.setText("Converting Characters to Hexadecimal Numbers/Ranges...");
+				new Thread(new Runnable() {
+					public void run() {
+						Range[] ranges = convertCharsToRanges(fieldText);
+						mLogging.logToOutput("ranges: "+Arrays.toString(ranges));
+						settings.setCharsToEscape(ranges,includeKeyCharsCheckbox.isSelected());
+						charsToEscapeField.setText(convertCharsToRangesText(ranges));
+						inputFormat = HEXADECIMAL_INPUT_FORMAT;
+						deduplicateButton.setEnabled(false);
+						applyButton.setText("Apply Changes");
+						//applyButton.setEnabled(true);
+					}
+				}).start();
+				
+			}
+		} else if(source == applyButton) {
+			if(inputFormat == HEXADECIMAL_INPUT_FORMAT) {
+				String fieldText = charsToEscapeField.getText();
+				new Thread(new Runnable() {
+					public void run() {
+						Range[] ranges = convertRangesTextToRanges(fieldText);
+						mLogging.logToOutput("ranges: "+Arrays.toString(ranges));
+						settings.setCharsToEscape(ranges,includeKeyCharsCheckbox.isSelected());
+						applyButton.setEnabled(false);
+					}
+				}).start();
+			}
 		} else if(source == pasteButton) {
 			Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
 			Transferable t = cb.getContents(null);
-			try {
-				charsToEscapeField.setText(charsToEscapeField.getText()+(String) t.getTransferData(DataFlavor.stringFlavor));
-			} catch(Exception ex) {
-				//No data in clipboard, or data is not text: do nothing
-			}
+			new Thread(new Runnable() {
+				public void run() {
+					String pastedData = null;
+					try {
+						pastedData = (String) t.getTransferData(DataFlavor.stringFlavor);
+					} catch(Exception ex) {
+						//No data in clipboard, or data is not text: do nothing
+					}
+					if(pastedData != null) {
+						pasteButton.setEnabled(false);
+						pasteButton.setText("Pasting...");
+						String fieldText = charsToEscapeField.getText();
+						if(inputFormat == HEXADECIMAL_INPUT_FORMAT) {
+							
+						}
+						charsToEscapeField.setText(fieldText+pastedData);
+						pasteButton.setText("Paste");
+						pasteButton.setEnabled(true);
+					}
+				}
+			}).start();
 		} else if(source == deduplicateButton) {
-			if(inputFormat == CHARS_INPUT_FORMAT)
-				deduplicateEscapeChars();
+			if(inputFormat == CHARS_INPUT_FORMAT) {
+				new Thread(new Runnable() {
+					public void run() {
+						deduplicateEscapeChars();
+					}
+				}).start();
+			}
 		} else if(source == includeKeyCharsCheckbox) {
 			if(inputFormat == CHARS_INPUT_FORMAT) {
 				settings.setCharsToEscape(charsToEscapeField.getText(),includeKeyCharsCheckbox.isSelected());
+			} else if(inputFormat == HEXADECIMAL_INPUT_FORMAT) {
+				Range[] ranges = convertRangesTextToRanges(charsToEscapeField.getText());
+				settings.setCharsToEscape(ranges,includeKeyCharsCheckbox.isSelected());
 			}
 		} else if(source == fineTuneUnescapingCheckbox) {
 			settings.setFineTuneUnescaping(fineTuneUnescapingCheckbox.isSelected());
@@ -172,45 +433,46 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 	//DocumentListener methods
 	@Override
 	public void changedUpdate(DocumentEvent e) {
-		//preferences.setString(JsonEscaper.CHARS_TO_ESCAPE_KEY,charsToEscapeField.getText());
 		if(inputFormat == CHARS_INPUT_FORMAT) {
-			settings.setCharsToEscape(charsToEscapeField.getText(),includeKeyCharsCheckbox.isSelected());
+			applyButton.setText("Changes Auto-Applied");
+			applyButton.setEnabled(false);
+			if(includeKeyCharsCheckbox.isSelected()) {
+				settings.setCharsToEscape(charsToEscapeField.getText(),includeKeyCharsCheckbox.isSelected());
+				mLogging.logToOutput("Chars to escape set to: "+charsToEscapeField.getText());
+			}
+		} else if(inputFormat == HEXADECIMAL_INPUT_FORMAT) {
+			applyButton.setEnabled(true);
 		}
-		
-		//mApi.logging().logToOutput(String.format("%s updated from \"Characters to JSON Unicode-escape\" field (changedUpdate())",JsonEscaper.CHARS_TO_ESCAPE_KEY));
+		//mLogging.logToOutput(String.format("%s updated from \"Characters to JSON Unicode-escape\" field (changedUpdate())",JsonEscaper.CHARS_TO_ESCAPE_KEY));
 	}
 	
 	@Override
 	public void insertUpdate(DocumentEvent e) {
 		if(inputFormat == CHARS_INPUT_FORMAT) {
-			settings.setCharsToEscape(charsToEscapeField.getText(),includeKeyCharsCheckbox.isSelected());
+			applyButton.setText("Changes Auto-Applied");
+			applyButton.setEnabled(false);
+			if(includeKeyCharsCheckbox.isSelected()) {
+				settings.setCharsToEscape(charsToEscapeField.getText(),includeKeyCharsCheckbox.isSelected());
+				mLogging.logToOutput("Chars to escape set to: "+charsToEscapeField.getText());
+			}
+		} else if(inputFormat == HEXADECIMAL_INPUT_FORMAT) {
+			applyButton.setEnabled(true);
 		}
-		//mApi.logging().logToOutput(String.format("%s updated from \"Characters to JSON Unicode-escape\" field (insertUpdate())",JsonEscaper.CHARS_TO_ESCAPE_KEY));
+		//mLogging.logToOutput(String.format("%s updated from \"Characters to JSON Unicode-escape\" field (insertUpdate())",JsonEscaper.CHARS_TO_ESCAPE_KEY));
 	}
 	
 	@Override	
 	public void removeUpdate(DocumentEvent e) {
 		if(inputFormat == CHARS_INPUT_FORMAT) {
-			settings.setCharsToEscape(charsToEscapeField.getText(),includeKeyCharsCheckbox.isSelected());
-		}
-		//mApi.logging().logToOutput(String.format("%s updated from \"Characters to JSON Unicode-escape\" field (removeUpdate())",JsonEscaper.CHARS_TO_ESCAPE_KEY));
-	}
-	
-	private void deduplicateEscapeChars() {
-		if(inputFormat != CHARS_INPUT_FORMAT) return;
-		
-		String charsToEscape = charsToEscapeField.getText();
-		
-		//Remove duplicate characters
-		if(charsToEscape!=null && charsToEscape.length()!=0) {
-			String uniqEscapeChars = "";
-			for(int l=0;l<charsToEscape.length();l++) {
-				String ch = String.valueOf(charsToEscape.charAt(l));
-				if(!uniqEscapeChars.contains(ch))
-					uniqEscapeChars += ch;
+			applyButton.setText("Changes Auto-Applied");
+			applyButton.setEnabled(false);
+			if(includeKeyCharsCheckbox.isSelected()) {
+				settings.setCharsToEscape(charsToEscapeField.getText(),includeKeyCharsCheckbox.isSelected());
+				mLogging.logToOutput("Chars to escape set to: "+charsToEscapeField.getText());
 			}
-			charsToEscapeField.setText(uniqEscapeChars);
-			preferences.setString(JsonEscaper.CHARS_TO_ESCAPE_KEY,uniqEscapeChars);
+		} else if(inputFormat == HEXADECIMAL_INPUT_FORMAT) {
+			applyButton.setEnabled(true);
 		}
+		//mLogging.logToOutput(String.format("%s updated from \"Characters to JSON Unicode-escape\" field (removeUpdate())",JsonEscaper.CHARS_TO_ESCAPE_KEY));
 	}
 }

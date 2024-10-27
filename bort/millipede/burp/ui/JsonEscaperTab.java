@@ -3,6 +3,7 @@ package bort.millipede.burp.ui;
 import bort.millipede.burp.JsonEscaper;
 
 import burp.api.montoya.MontoyaApi;
+import burp.api.montoya.ui.editor.RawEditor;
 
 import java.awt.GridLayout;
 import javax.swing.JPanel;
@@ -31,7 +32,7 @@ public class JsonEscaperTab extends JPanel {
 		this.add(tabbedPane);
 	}
 	
-	public void setInputAreaContents(String contents) {
-		escaperUnescaperTab.setInputAreaContents(contents);
+	public RawEditor getManualInputArea() {
+		return escaperUnescaperTab.getInputArea();
 	}
 }
