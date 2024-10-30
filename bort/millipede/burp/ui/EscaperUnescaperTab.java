@@ -13,7 +13,9 @@ import burp.api.montoya.ui.Selection;
 import java.util.Optional;
 import java.nio.charset.StandardCharsets;
 
+import java.awt.Component;
 import java.awt.GridLayout;
+import java.awt.Dimension;
 import java.awt.Color;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
@@ -37,10 +39,12 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 	private JButton escapeUnescapeButton;
 	private JButton clearInputButton;
 	private JButton pasteClipboardButton;
+	private JButton pasteFileButton;
 	private JButton copyClipboardButton;
+	private JButton copyFileButton;
 	private JButton clearOutputButton;
 	private JLabel errorLabel;
-	private Color errorLabelColor;
+	//private Color errorLabelColor;
 	private RawEditor outputArea;
 	
 	private JPanel settingsPanel;
@@ -60,12 +64,15 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		this.add(inputLabelPanel);
 		inputArea = mApi.userInterface().createRawEditor(EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES);
 		inputArea.setContents(ByteArray.byteArrayOfLength(0));
-		this.add(inputArea.uiComponent());
+		Component inputAreaComponent = inputArea.uiComponent();
+		//inputAreaComponent.setMaximumSize(new Dimension(mApi.userInterface().swingUtils().suiteFrame().getWidth(),mApi.userInterface().swingUtils().suiteFrame().getHeight())); //Need to add this in to prevent window from going crazy on large pastes
+		this.add(inputAreaComponent);
 		
 		//middle button panel
 		JPanel middlePanel = new JPanel();
 		errorLabel = new JLabel(new String(""));
-		errorLabelColor = errorLabel.getForeground();
+		//errorLabelColor = errorLabel.getForeground();
+		errorLabel.setForeground(Color.RED);
 		optionDropdown = new JComboBox<String>();
 		optionDropdown.addItem(JsonEscaper.UNESCAPE_LABEL);
 		optionDropdown.addItem(JsonEscaper.ESCAPE_KEY_LABEL);
@@ -78,10 +85,14 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		escapeUnescapeButton.addActionListener(this);
 		clearInputButton = new JButton("Clear Input");
 		clearInputButton.addActionListener(this);
-		pasteClipboardButton = new JButton("Paste Value From Clipboard");
+		pasteClipboardButton = new JButton("Paste From Clipboard");
 		pasteClipboardButton.addActionListener(this);
+		pasteFileButton = new JButton("Paste From File");
+		pasteFileButton.addActionListener(this);
 		copyClipboardButton = new JButton("Copy Unescaped Output To Clipboard");
 		copyClipboardButton.addActionListener(this);
+		copyFileButton = new JButton("Copy Unescaped Output To File");
+		copyFileButton.addActionListener(this);
 		clearOutputButton = new JButton("Clear Output");
 		clearOutputButton.addActionListener(this);
 		middlePanel.add(errorLabel);
@@ -90,7 +101,9 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		middlePanel.add(new JLabel("    "));
 		middlePanel.add(clearInputButton);
 		middlePanel.add(pasteClipboardButton);
+		middlePanel.add(pasteFileButton);
 		middlePanel.add(copyClipboardButton);
+		middlePanel.add(copyFileButton);
 		middlePanel.add(clearOutputButton);
 		this.add(middlePanel);
 		
@@ -100,7 +113,9 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		outputLabelPanel.add(new JLabel());
 		this.add(outputLabelPanel);
 		outputArea = mApi.userInterface().createRawEditor(EditorOptions.READ_ONLY,EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES);
-		this.add(outputArea.uiComponent());
+		Component outputAreaComponent = outputArea.uiComponent();
+		//outputAreaComponent.setMaximumSize(new Dimension(mApi.userInterface().swingUtils().suiteFrame().getWidth(),mApi.userInterface().swingUtils().suiteFrame().getHeight())); //Need to add this in to prevent window from going crazy on large pastes
+		this.add(outputAreaComponent);
 	}
 	
 	RawEditor getInputArea() {
@@ -117,6 +132,7 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 				case JsonEscaper.UNESCAPE_LABEL:
 					escapeUnescapeButton.setText("Unescape");
 					copyClipboardButton.setText("Copy Unescaped Output To Clipboard");
+					copyFileButton.setText("Copy Unescaped Output To File");
 					break;
 				case JsonEscaper.ESCAPE_KEY_LABEL:
 				case JsonEscaper.UNICODE_ESCAPE_KEY_LABEL:
@@ -124,11 +140,12 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 				case JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL:
 					escapeUnescapeButton.setText("Escape");
 					copyClipboardButton.setText("Copy Escaped Output To Clipboard");
+					copyFileButton.setText("Copy Escaped Output To File");
 					break;
 			}
 		} else if(source==escapeUnescapeButton) { //Escape/Unescape button
 			errorLabel.setText("");
-			errorLabel.setForeground(errorLabelColor);
+			//errorLabel.setForeground(errorLabelColor);
 			String outputVal = new String(inputArea.getContents().getBytes(),StandardCharsets.UTF_8);
 			if(outputVal.length()==0) {
 				outputArea.setContents(ByteArray.byteArrayOfLength(0));
@@ -136,34 +153,46 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 			}
 			mApi.logging().logToOutput("EscaperTab actionPerformed inputArea contents: "+outputVal);
 			String selectedItem = (String) optionDropdown.getSelectedItem();
-			switch(selectedItem) {
-				case JsonEscaper.UNESCAPE_LABEL:
-					try {
-						outputVal = JsonEscaper.unescapeAllChars(outputVal);
-					} catch(JSONException jsonE) {
-						outputVal = "";
-						errorLabel.setText("Error occurred when unescaping input!!!");
-						errorLabel.setForeground(Color.RED);
+			new Thread(new Runnable() {
+				public void run() {
+					String innerOutputVal = outputVal;
+					switch(selectedItem) {
+						case JsonEscaper.UNESCAPE_LABEL:
+							try {
+								outputArea.setContents(ByteArray.byteArray("Unescaping..."));
+								innerOutputVal = JsonEscaper.unescapeAllChars(innerOutputVal);
+							} catch(JSONException jsonE) {
+								innerOutputVal = "";
+								errorLabel.setText("Error occurred when unescaping input!!!");
+							}
+							break;
+						case JsonEscaper.ESCAPE_KEY_LABEL:
+							outputArea.setContents(ByteArray.byteArray("Escaping..."));
+							innerOutputVal = JsonEscaper.escapeKeyChars(innerOutputVal);
+							break;
+						case JsonEscaper.UNICODE_ESCAPE_KEY_LABEL:
+							outputArea.setContents(ByteArray.byteArray("Escaping..."));
+							innerOutputVal = JsonEscaper.unicodeEscapeKeyChars(innerOutputVal);
+							break;
+						case JsonEscaper.UNICODE_ESCAPE_ALL_LABEL:
+							outputArea.setContents(ByteArray.byteArray("Escaping..."));
+							innerOutputVal = JsonEscaper.unicodeEscapeAllChars(innerOutputVal);
+							break;
+						case JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL:
+							outputArea.setContents(ByteArray.byteArray("Escaping..."));
+							innerOutputVal = JsonEscaper.unicodeEscapeChars(innerOutputVal,settings.getCharsToEscape());
+							break;
 					}
-					break;
-				case JsonEscaper.ESCAPE_KEY_LABEL:
-					outputVal = JsonEscaper.escapeKeyChars(outputVal);
-					break;
-				case JsonEscaper.UNICODE_ESCAPE_KEY_LABEL:
-					outputVal = JsonEscaper.unicodeEscapeKeyChars(outputVal);
-					break;
-				case JsonEscaper.UNICODE_ESCAPE_ALL_LABEL:
-					outputVal = JsonEscaper.unicodeEscapeAllChars(outputVal);
-					break;
-				case JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL:
-					outputVal = JsonEscaper.unicodeEscapeChars(outputVal,settings.getCharsToEscape());
-					break;
-			}
-			
-			mApi.logging().logToOutput("EscaperTab outputVal: "+outputVal);
-			outputArea.setContents(ByteArray.byteArrayOfLength(0));
-			outputArea.setContents(ByteArray.byteArray(outputVal.getBytes(StandardCharsets.UTF_8)));
-		} else if(source==pasteClipboardButton) { //Paste Value button
+					
+					mApi.logging().logToOutput("EscaperTab outputVal: "+innerOutputVal);
+					outputArea.setContents(ByteArray.byteArrayOfLength(0));
+					outputArea.setContents(ByteArray.byteArray(innerOutputVal.getBytes(StandardCharsets.UTF_8)));
+				}
+			}).start();
+		} else if(source==clearInputButton) { //Clear Input button
+			inputArea.setContents(ByteArray.byteArrayOfLength(0));
+			errorLabel.setText("");
+		} else if(source==pasteClipboardButton) { //Paste From Clipboard button
 			Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
 			Transferable t = cb.getContents(null);
 			String textToPaste = null;

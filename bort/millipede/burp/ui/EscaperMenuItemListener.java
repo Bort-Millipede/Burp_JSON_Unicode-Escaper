@@ -102,7 +102,7 @@ public class EscaperMenuItemListener implements ActionListener {
 				return;
 		}
 		
-		mLogging.logToOutput(String.format("%s: %s\r\n",menuItemText,outputVal)); //todo: add timestamps to logs? or remove this altogether
+		//mLogging.logToOutput(String.format("%s: %s\r\n",menuItemText,outputVal)); //todo: add timestamps to logs? or remove this altogether
 		
 		if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_EDITOR_RESPONSE)) {
 			if(!unescapeError) {

@@ -69,7 +69,7 @@ public class JsonEscaperSettings {
 	//END accessor methods
 	
 	//START mutator methods
-	public void setCharsToEscape(String strCharsToEscape,boolean includeKeyChars) {
+	public synchronized void setCharsToEscape(String strCharsToEscape,boolean includeKeyChars) {
 		if(strCharsToEscape != null && strCharsToEscape.length() !=0) {
 			if(includeKeyChars)
 				strCharsToEscape = KEY_CHARS.concat(strCharsToEscape);
@@ -87,13 +87,27 @@ public class JsonEscaperSettings {
 		}
 	}
 	
-	public void setCharsToEscape(Range[] ranges,boolean includeKeyChars) {
-		if(ranges==null) charsToEscape = new int[0];
-		if(ranges.length==0) charsToEscape = new int[0];
+	public synchronized void setCharsToEscape(Range[] ranges,boolean includeKeyChars) {
+		if(ranges==null) {
+			if(includeKeyChars) {
+				charsToEscape = KEY_CHARS_INT;
+			} else {
+				charsToEscape = new int[0];
+			}
+			return;
+		}
+		if(ranges.length==0) {
+			if(includeKeyChars) {
+				charsToEscape = KEY_CHARS_INT;
+			} else {
+				charsToEscape = new int[0];
+			}
+			return;
+		}
+		System.err.println("JsonEscaperSettings.setCharsToEscape() ranges: "+Arrays.toString(ranges));
 		
 		int outArrLength = 0;
-		if(includeKeyChars)
-			outArrLength+=KEY_CHARS_INT.length;
+		
 		int i=0;
 		while(i<ranges.length) {
 			if(ranges[i]!=null) {
@@ -101,18 +115,11 @@ public class JsonEscaperSettings {
 			}
 			i++;
 		}
-		
+		if(includeKeyChars)
+			outArrLength+=KEY_CHARS_INT.length;
 		
 		int[] outArr = new int[outArrLength];
 		int outIndex = 0;
-		if(includeKeyChars) {
-			i=0;
-			while(i<KEY_CHARS_INT.length) {
-				outArr[outIndex] = KEY_CHARS_INT[i];
-				outIndex++;
-				i++;
-			}
-		}
 		i=0;
 		while(i<ranges.length) {
 			int[] rangeArr = IntStream.range(ranges[i].startIndexInclusive(),ranges[i].endIndexExclusive()).toArray();
@@ -124,8 +131,18 @@ public class JsonEscaperSettings {
 			}
 			i++;
 		}
+		if(includeKeyChars) {
+			i=0;
+			while(i<KEY_CHARS_INT.length) {
+				outArr[outIndex] = KEY_CHARS_INT[i];
+				outIndex++;
+				i++;
+			}
+		}
 		
 		charsToEscape = IntStream.of(outArr).distinct().sorted().toArray();
+		System.err.println("JsonEscaperSettings.setCharsToEscape() charsToEscape: "+Arrays.toString(charsToEscape));
+		System.err.println("JsonEscaperSettings.setCharsToEscape() includeKeyChars: "+Boolean.toString(includeKeyChars));
 	}
 	
 	/*public void setInputFormat(byte input) {
@@ -153,3 +170,4 @@ public class JsonEscaperSettings {
 	}
 	//END mutator methods
 }
+

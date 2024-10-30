@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Iterator;
 import java.util.stream.IntStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 import java.awt.Component;
 import java.awt.event.ActionListener;
@@ -288,6 +289,9 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	public static String unicodeEscapeChars(String input,int[] charsToEscape) {
 		if(input==null) return null;
 		if(input.length()==0) return input;
+		
+		System.err.println("JsonEscaper.unicodeEscapeChars() charsToEscape: "+Arrays.toString(charsToEscape));
+		System.err.println("JsonEscaper.unicodeEscapeChars() JsonEscaperSettings.getCharsToEscape(): "+Arrays.toString(JsonEscaperSettings.getInstance().getCharsToEscape()));
 		
 		String[] inputArr = new String[input.length()];
 		int i=0;
