@@ -11,9 +11,9 @@ import burp.api.montoya.ui.editor.RawEditor;
 import burp.api.montoya.http.message.*;
 import burp.api.montoya.http.message.requests.*;
 import burp.api.montoya.http.message.responses.*;
-import burp.api.montoya.persistence.Preferences;
 import burp.api.montoya.logging.Logging;
 
+import java.util.Arrays;
 import java.nio.charset.StandardCharsets;
 
 import java.awt.event.ActionListener;
@@ -25,7 +25,6 @@ import org.json.JSONException;
 public class EscaperMenuItemListener implements ActionListener {
 	private MontoyaApi mApi;
 	private ContextMenuEvent event;
-	private Preferences mPreferences; //to be removed
 	private JsonEscaperSettings settings;
 	private Logging mLogging;
 	private RawEditor manualInputArea;
@@ -94,7 +93,9 @@ public class EscaperMenuItemListener implements ActionListener {
 				outputVal = JsonEscaper.unicodeEscapeAllChars(outputVal);
 				break;
 			case JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL:
-				outputVal = JsonEscaper.unicodeEscapeChars(outputVal,settings.getCharsToEscape());
+				int[] charsToEscape = settings.getCharsToEscape();
+				mLogging.logToOutput("EscaperMenuItemListener.actionPerformed() charsToEscape: "+Arrays.toString(charsToEscape));
+				outputVal = JsonEscaper.unicodeEscapeChars(outputVal,charsToEscape);
 				break;
 			case JsonEscaper.SEND_TO_MANUAL_TAB:
 				manualInputArea.setContents(ByteArray.byteArrayOfLength(0));

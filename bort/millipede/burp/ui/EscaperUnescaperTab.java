@@ -153,7 +153,8 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 			}
 			mApi.logging().logToOutput("EscaperTab actionPerformed inputArea contents: "+outputVal);
 			String selectedItem = (String) optionDropdown.getSelectedItem();
-			new Thread(new Runnable() {
+			SwingUtilities.invokeLater(new Runnable() {
+				@Override
 				public void run() {
 					String innerOutputVal = outputVal;
 					switch(selectedItem) {
@@ -188,7 +189,7 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 					outputArea.setContents(ByteArray.byteArrayOfLength(0));
 					outputArea.setContents(ByteArray.byteArray(innerOutputVal.getBytes(StandardCharsets.UTF_8)));
 				}
-			}).start();
+			});
 		} else if(source==clearInputButton) { //Clear Input button
 			inputArea.setContents(ByteArray.byteArrayOfLength(0));
 			errorLabel.setText("");

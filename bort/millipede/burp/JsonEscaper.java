@@ -290,9 +290,6 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		if(input==null) return null;
 		if(input.length()==0) return input;
 		
-		System.err.println("JsonEscaper.unicodeEscapeChars() charsToEscape: "+Arrays.toString(charsToEscape));
-		System.err.println("JsonEscaper.unicodeEscapeChars() JsonEscaperSettings.getCharsToEscape(): "+Arrays.toString(JsonEscaperSettings.getInstance().getCharsToEscape()));
-		
 		String[] inputArr = new String[input.length()];
 		int i=0;
 		while(i<inputArr.length) {
