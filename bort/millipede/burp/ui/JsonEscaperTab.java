@@ -4,6 +4,7 @@ import bort.millipede.burp.JsonEscaper;
 
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.ui.editor.RawEditor;
+import burp.api.montoya.core.ByteArray;
 
 import java.awt.GridLayout;
 import javax.swing.JPanel;
@@ -32,7 +33,13 @@ public class JsonEscaperTab extends JPanel {
 		this.add(tabbedPane);
 	}
 	
-	public RawEditor getManualInputArea() {
-		return escaperUnescaperTab.getInputArea();
+	public void setManualInputArea(ByteArray contents) {
+		RawEditor inputArea = escaperUnescaperTab.getInputArea();
+		inputArea.setContents(ByteArray.byteArrayOfLength(0));
+		inputArea.setContents(contents);
+	}
+	
+	public void clearManualOutputArea() {
+		escaperUnescaperTab.getOutputArea().setContents(ByteArray.byteArrayOfLength(0));
 	}
 }

@@ -27,15 +27,20 @@ public class EscaperMenuItemListener implements ActionListener {
 	private ContextMenuEvent event;
 	private JsonEscaperSettings settings;
 	private Logging mLogging;
-	private RawEditor manualInputArea;
+	private JsonEscaperTab eTab;
 	
-	public EscaperMenuItemListener(MontoyaApi api,ContextMenuEvent inEvent,RawEditor inputArea) {
+	public EscaperMenuItemListener(MontoyaApi api,ContextMenuEvent inEvent,JsonEscaperTab ui) {
 		mApi = api;
 		event = inEvent;
 		settings = JsonEscaperSettings.getInstance();
 		mLogging = api.logging();
-		manualInputArea = inputArea;
+		eTab = ui;
 	}
+	
+	public EscaperMenuItemListener(MontoyaApi api,ContextMenuEvent inEvent) {
+		this(api,inEvent,null);
+	}
+
 	
 	@Override
 	public void actionPerformed(ActionEvent e) {
@@ -98,8 +103,8 @@ public class EscaperMenuItemListener implements ActionListener {
 				outputVal = JsonEscaper.unicodeEscapeChars(outputVal,charsToEscape);
 				break;
 			case JsonEscaper.SEND_TO_MANUAL_TAB:
-				manualInputArea.setContents(ByteArray.byteArrayOfLength(0));
-				manualInputArea.setContents(ByteArray.byteArray(outputVal.getBytes(StandardCharsets.UTF_8)));
+				eTab.clearManualOutputArea();
+				eTab.setManualInputArea(ByteArray.byteArray(outputVal.getBytes(StandardCharsets.UTF_8)));
 				return;
 		}
 		

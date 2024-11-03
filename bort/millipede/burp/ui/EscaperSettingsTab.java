@@ -41,6 +41,8 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 	private JRadioButton hexRangesFormatButton;
 	private JLabel charsToEscapeLabel;
 	private JTextArea charsToEscapeField;
+	private Highlighter charsToEscapeFieldHighlighter;
+	private HighlightPainter errorHighlightPainter;
 	private JLabel errorLabel;
 	private JButton applyButton;
 	private JButton pasteButton;
@@ -107,6 +109,8 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 		charsToEscapeField.getDocument().addDocumentListener(this);
 		charsToEscapeField.setMaximumSize(new Dimension(mApi.userInterface().swingUtils().suiteFrame().getWidth(),mApi.userInterface().swingUtils().suiteFrame().getHeight()));
 		innerSettingsPanel.add(new JScrollPane(charsToEscapeField));
+		charsToEscapeFieldHighlighter = charsToEscapeField.getHighlighter();
+		errorHighlightPainter = new DefaultHighlighter.DefaultHighlightPainter(Color.RED);
 		errorLabel = new JLabel("",SwingConstants.RIGHT);
 		errorLabel.setForeground(Color.RED);
 		innerSettingsPanel.add(errorLabel);
@@ -319,6 +323,9 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 					
 					outputList.add(Range.range((int) start,(int) end+1));
 				} else {
+					if(hex.length()>4) {
+						throw new UnsupportedEncodingException(String.format("%s%s\"",EX_MESSAGE_HEAD,hex));
+					}
 					int start = Integer.parseInt(hex,16); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
 					outputList.add(Range.range(start,start+1));
 				}
@@ -367,7 +374,7 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 					output = output.concat(String.join("",outChars));
 				} else {
 					if(hex.length()>4) {
-						throw new IllegalArgumentException();
+						throw new UnsupportedEncodingException(String.format("%s%s\"",EX_MESSAGE_HEAD,hex));
 					}
 					output = output.concat(String.valueOf((char) Integer.parseInt(hex,16))); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
 				}
@@ -423,25 +430,25 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 		} else if (source == hexRangesFormatButton) {
 			if(inputFormat != HEXADECIMAL_INPUT_FORMAT) {
 				charsToEscapeLabel.setText(ESCAPE_CHARS_LABEL_RANGES_TEXT);
-				System.err.println("charsToEscapeLabel.setText(ESCAPE_CHARS_LABEL_RANGES_TEXT);");
+				//System.err.println("charsToEscapeLabel.setText(ESCAPE_CHARS_LABEL_RANGES_TEXT);");
 				String fieldText = charsToEscapeField.getText();
-				System.err.println("String fieldText = charsToEscapeField.getText();");
+				//System.err.println("String fieldText = charsToEscapeField.getText();");
 				charsToEscapeField.setText(CONVERT_CHARS_TO_RANGES_TEXT);
-				System.err.println("charsToEscapeField.setText(CONVERT_CHARS_TO_RANGES_TEXT);");
+				//System.err.println("charsToEscapeField.setText(CONVERT_CHARS_TO_RANGES_TEXT);");
 				SwingUtilities.invokeLater(new Runnable() {
 					@Override
 					public void run() {
 						Range[] ranges = convertCharsToRanges(fieldText);
-						System.err.println("Range[] ranges = convertCharsToRanges(fieldText); == "+Arrays.toString(ranges));
+						//System.err.println("Range[] ranges = convertCharsToRanges(fieldText); == "+Arrays.toString(ranges));
 						String rangesText = convertRangesToText(ranges);
-						System.err.println("String rangesText = convertRangesToText(ranges); == \""+rangesText+"\"");
+						//System.err.println("String rangesText = convertRangesToText(ranges); == \""+rangesText+"\"");
 						//mLogging.logToOutput("ranges: "+Arrays.toString(ranges));
 						settings.setCharsToEscape(ranges,includeKeyCharsCheckbox.isSelected());
-						System.err.println("settings.setCharsToEscape(ranges,includeKeyCharsCheckbox.isSelected());");
+						//System.err.println("settings.setCharsToEscape(ranges,includeKeyCharsCheckbox.isSelected());");
 						inputFormat = HEXADECIMAL_INPUT_FORMAT;
-						System.err.println("inputFormat = HEXADECIMAL_INPUT_FORMAT;");
+						//System.err.println("inputFormat = HEXADECIMAL_INPUT_FORMAT;");
 						charsToEscapeField.setText(rangesText);
-						System.err.println("charsToEscapeField.setText(rangesText);");
+						//System.err.println("charsToEscapeField.setText(rangesText);");
 						applyButton.setText(APPLY_BUTTON_RANGES_TEXT);
 						pasteButton.setText(PASTE_BUTTON_RANGES_TEXT);
 						deduplicateSortButton.setEnabled(false);
@@ -560,12 +567,10 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 			String input = message.substring(EX_MESSAGE_HEAD.length());
 			input = input.substring(0,input.lastIndexOf('\"'));
 			mLogging.logToOutput("invalid input: "+input);
-			Highlighter highlighter = charsToEscapeField.getHighlighter();
-			HighlightPainter painter = new DefaultHighlighter.DefaultHighlightPainter(Color.RED);
 			int p0 = fieldText.indexOf(input);
 			int p1 = p0 + input.length();
 			try {
-				highlighter.addHighlight(p0,p1,painter);
+				charsToEscapeFieldHighlighter.addHighlight(p0,p1,errorHighlightPainter);
 			} catch(Exception e) {
 				mLogging.logToError(e.getMessage(),e);
 			}
@@ -587,7 +592,7 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 			applyButton.setEnabled(true);
 		}
 		//mLogging.logToOutput(String.format("%s updated from \"Characters to JSON Unicode-escape\" field%s",JsonEscaper.CHARS_TO_ESCAPE_KEY,String.format(" (%s())",method)));
-		System.err.println(String.format("%s updated from \"Characters to JSON Unicode-escape\" field%s",JsonEscaper.CHARS_TO_ESCAPE_KEY,String.format(" (%s())",method)));
+		//System.err.println(String.format("%s updated from \"Characters to JSON Unicode-escape\" field%s",JsonEscaper.CHARS_TO_ESCAPE_KEY,String.format(" (%s())",method)));
 	}
 }
 

@@ -44,7 +44,6 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 	private JButton copyFileButton;
 	private JButton clearOutputButton;
 	private JLabel errorLabel;
-	//private Color errorLabelColor;
 	private RawEditor outputArea;
 	
 	private JPanel settingsPanel;
@@ -71,7 +70,6 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		//middle button panel
 		JPanel middlePanel = new JPanel();
 		errorLabel = new JLabel(new String(""));
-		//errorLabelColor = errorLabel.getForeground();
 		errorLabel.setForeground(Color.RED);
 		optionDropdown = new JComboBox<String>();
 		optionDropdown.addItem(JsonEscaper.UNESCAPE_LABEL);
@@ -116,10 +114,17 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		Component outputAreaComponent = outputArea.uiComponent();
 		//outputAreaComponent.setMaximumSize(new Dimension(mApi.userInterface().swingUtils().suiteFrame().getWidth(),mApi.userInterface().swingUtils().suiteFrame().getHeight())); //Need to add this in to prevent window from going crazy on large pastes
 		this.add(outputAreaComponent);
+		
+		//inputAreaComponent.setMaximumSize(new Dimension(mApi.userInterface().swingUtils().suiteFrame().getWidth(),inputAreaComponent.getHeight())); //Need to add this in to prevent window from going crazy on large pastes
+		//outputAreaComponent.setMaximumSize(new Dimension(mApi.userInterface().swingUtils().suiteFrame().getWidth(),outputAreaComponent.getHeight())); //Need to add this in to prevent window from going crazy on large pastes
 	}
 	
 	RawEditor getInputArea() {
 		return inputArea;
+	}
+	
+	RawEditor getOutputArea() {
+		return outputArea;
 	}
 	
 	//ActionListener method

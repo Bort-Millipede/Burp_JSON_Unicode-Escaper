@@ -163,14 +163,19 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 				sendToManualTabItem.removeActionListener(listeners[i]);
 				i++;
 			}
-						
-			EscaperMenuItemListener listener = new EscaperMenuItemListener(mApi,event,escaperTab.getManualInputArea());
+			
+			//Add listener for in-place escape/unescape menu items
+			EscaperMenuItemListener listener = new EscaperMenuItemListener(mApi,event);
 			unescapeMenuItem.addActionListener(listener);
 			escapeKeyMenuItem.addActionListener(listener);
 			unicodeEscapeKeyMenuItem.addActionListener(listener);
 			unicodeEscapeAllMenuItem.addActionListener(listener);
 			unicodeEscapeMenuItem.addActionListener(listener);
-			sendToManualTabItem.addActionListener(listener);
+			
+			//Add listener for send to manual escaper/unescaper menu item
+			EscaperMenuItemListener sendToManualListener = new EscaperMenuItemListener(mApi,event,escaperTab);
+			sendToManualTabItem.addActionListener(sendToManualListener);
+			
 			if(event.isFrom(InvocationType.INTRUDER_PAYLOAD_POSITIONS)) { //Intruder in-place edit not yet implemented, so disable buttons for now
 				unescapeMenuItem.setEnabled(false);
 				escapeKeyMenuItem.setEnabled(false);
@@ -179,10 +184,10 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 				unicodeEscapeMenuItem.setEnabled(false);
 				sendToManualTabItem.setEnabled(false);
 			}
-			JMenu manualSubMenu = new JMenu("Manual Escaper/Unescaper");
+			JMenu manualSubMenu = new JMenu("Manual Escaper/Unescaper"); //consider refactoring to create submenu object once and just add/remove items as necessary
 			manualSubMenu.add(sendToManualTabItem);
 			
-			return List.of(unescapeMenuItem,escapeKeyMenuItem,unicodeEscapeKeyMenuItem,unicodeEscapeAllMenuItem,unicodeEscapeMenuItem,new JSeparator(),manualSubMenu);
+			return List.of(unescapeMenuItem,escapeKeyMenuItem,unicodeEscapeKeyMenuItem,unicodeEscapeAllMenuItem,unicodeEscapeMenuItem,new JSeparator(),manualSubMenu); //consider refactoring to create separator once and adding in same object each time
 		}
 		return List.of();
 	}

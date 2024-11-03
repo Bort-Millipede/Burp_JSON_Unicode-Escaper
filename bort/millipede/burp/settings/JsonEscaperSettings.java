@@ -10,7 +10,7 @@ import burp.api.montoya.core.Range;
 public class JsonEscaperSettings {
 	//Singleton references
 	private static JsonEscaperSettings instance;
-	private static Object mutex = new Object();
+	private static Object mutex = new Object(); //added for thread-safety: https://www.digitalocean.com/community/tutorials/thread-safety-in-java-singleton-classes
 	
 	//"Unicode-Escape Custom Chars" settings fields
 	private int[] charsToEscape;
