@@ -4,13 +4,18 @@ import bort.millipede.burp.JsonEscaper;
 import bort.millipede.burp.settings.JsonEscaperSettings;
 
 import burp.api.montoya.MontoyaApi;
-import burp.api.montoya.persistence.Preferences;
+import burp.api.montoya.logging.Logging;
 import burp.api.montoya.core.ByteArray;
 import burp.api.montoya.ui.editor.RawEditor;
 import burp.api.montoya.ui.editor.EditorOptions;
 import burp.api.montoya.ui.Selection;
 
 import java.util.Optional;
+import java.io.File;
+import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 import java.awt.Component;
@@ -30,7 +35,7 @@ import org.json.JSONException;
 
 class EscaperUnescaperTab extends JPanel implements ActionListener {
 	private MontoyaApi mApi;
-	private Preferences mPreferences;
+	private Logging mLogging;
 	
 	private JsonEscaperSettings settings;
 	
@@ -40,8 +45,10 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 	private JButton clearInputButton;
 	private JButton pasteClipboardButton;
 	private JButton pasteFileButton;
+	private JFileChooser pasteFileChooser;
 	private JButton copyClipboardButton;
 	private JButton copyFileButton;
+	private JFileChooser copyFileChooser;
 	private JButton clearOutputButton;
 	private JLabel errorLabel;
 	private RawEditor outputArea;
@@ -51,7 +58,7 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 	EscaperUnescaperTab(MontoyaApi api) {
 		super();
 		mApi = api;
-		mPreferences = mApi.persistence().preferences();
+		mLogging = mApi.logging();
 		
 		settings = JsonEscaperSettings.getInstance();
 		
@@ -87,10 +94,14 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		pasteClipboardButton.addActionListener(this);
 		pasteFileButton = new JButton("Paste From File");
 		pasteFileButton.addActionListener(this);
+		pasteFileChooser = new JFileChooser();
+		pasteFileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
 		copyClipboardButton = new JButton("Copy Unescaped Output To Clipboard");
 		copyClipboardButton.addActionListener(this);
 		copyFileButton = new JButton("Copy Unescaped Output To File");
 		copyFileButton.addActionListener(this);
+		copyFileChooser = new JFileChooser();
+		copyFileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
 		clearOutputButton = new JButton("Clear Output");
 		clearOutputButton.addActionListener(this);
 		middlePanel.add(errorLabel);
@@ -138,6 +149,7 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 					escapeUnescapeButton.setText("Unescape");
 					copyClipboardButton.setText("Copy Unescaped Output To Clipboard");
 					copyFileButton.setText("Copy Unescaped Output To File");
+					outputArea.setContents(ByteArray.byteArrayOfLength(0));
 					break;
 				case JsonEscaper.ESCAPE_KEY_LABEL:
 				case JsonEscaper.UNICODE_ESCAPE_KEY_LABEL:
@@ -146,6 +158,7 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 					escapeUnescapeButton.setText("Escape");
 					copyClipboardButton.setText("Copy Escaped Output To Clipboard");
 					copyFileButton.setText("Copy Escaped Output To File");
+					outputArea.setContents(ByteArray.byteArrayOfLength(0));
 					break;
 			}
 		} else if(source==escapeUnescapeButton) { //Escape/Unescape button
@@ -156,7 +169,7 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 				outputArea.setContents(ByteArray.byteArrayOfLength(0));
 				return;
 			}
-			mApi.logging().logToOutput("EscaperTab actionPerformed inputArea contents: "+outputVal);
+			mLogging.logToOutput("EscaperTab actionPerformed inputArea contents: "+outputVal);
 			String selectedItem = (String) optionDropdown.getSelectedItem();
 			SwingUtilities.invokeLater(new Runnable() {
 				@Override
@@ -190,7 +203,7 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 							break;
 					}
 					
-					mApi.logging().logToOutput("EscaperTab outputVal: "+innerOutputVal);
+					mLogging.logToOutput("EscaperTab outputVal: "+innerOutputVal);
 					outputArea.setContents(ByteArray.byteArrayOfLength(0));
 					outputArea.setContents(ByteArray.byteArray(innerOutputVal.getBytes(StandardCharsets.UTF_8)));
 				}
@@ -198,13 +211,13 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		} else if(source==clearInputButton) { //Clear Input button
 			inputArea.setContents(ByteArray.byteArrayOfLength(0));
 			errorLabel.setText("");
-		} else if(source==pasteClipboardButton) { //Paste From Clipboard button
+		} else if(source==pasteClipboardButton) { //Paste From Clipboard button: considering removing this button
 			Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
 			Transferable t = cb.getContents(null);
 			String textToPaste = null;
 			try {
 				textToPaste = (String) t.getTransferData(DataFlavor.stringFlavor);
-				mApi.logging().logToOutput("Text to paste: "+textToPaste);
+				mLogging.logToOutput("Text to paste: "+textToPaste);
 			} catch(Exception ex) {
 				//No data in clipboard, or data is not text: do nothing
 			}
@@ -239,7 +252,70 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 			inputArea.setContents(ByteArray.byteArrayOfLength(0));
 			inputArea.setContents(contents);
 			
-		} else if(source==copyClipboardButton) { //Copy to Clipboard button
+		} else if(source==pasteFileButton) { //Paste from file button
+			int res = pasteFileChooser.showOpenDialog(null);
+			if(res == JFileChooser.APPROVE_OPTION) {
+				File srcFile = pasteFileChooser.getSelectedFile();
+				
+				ByteArrayOutputStream baos = null;
+				FileInputStream fis = null;
+				try {
+					byte[] buffer = new byte[4096];
+					baos = new ByteArrayOutputStream();
+					fis = new FileInputStream(srcFile);
+					int read = 0;
+					while ((read = fis.read(buffer)) != -1) {
+						baos.write(buffer,0,read);
+					}
+				} catch(IOException ioe) {
+					String absPath = srcFile.getAbsolutePath();
+					errorLabel.setText(String.format("Error reading from file %s!",absPath));
+					mLogging.logToError(String.format("Error reading from file %s!",absPath));
+					return;
+				}
+				
+				try {
+					baos.close();
+				} catch (Exception ex) {
+					
+				}
+				try {
+					fis.close();
+				} catch (Exception ex) {
+					
+				}
+    				
+    				ByteArray contents = inputArea.getContents();
+				String prefix = "";
+				String suffix = "";
+				Optional<Selection> selectionOptional = inputArea.selection();
+				
+				if(selectionOptional.isEmpty()) { //no text selected
+					int caretPosition = inputArea.caretPosition();
+					if(caretPosition == 0) {
+						suffix = new String(contents.getBytes(),StandardCharsets.UTF_8);
+					} else if(caretPosition == contents.length()) {
+						prefix = new String(contents.getBytes(),StandardCharsets.UTF_8);
+					} else {
+						prefix = new String(contents.subArray(0,caretPosition).getBytes(),StandardCharsets.UTF_8);
+						suffix = new String(contents.subArray(caretPosition,contents.length()).getBytes(),StandardCharsets.UTF_8);
+					}
+				} else {
+					Selection selection = selectionOptional.get();
+					int selectionStart = selection.offsets().startIndexInclusive();
+					int selectionEnd = selection.offsets().endIndexExclusive();
+					if(selectionStart != 0) {
+						prefix = new String(contents.subArray(0,selectionStart).getBytes(),StandardCharsets.UTF_8);
+					}
+					if(selectionEnd != contents.length()) {
+						suffix = new String(contents.subArray(selectionEnd,contents.length()).getBytes(),StandardCharsets.UTF_8);
+					}
+				}
+				contents = ByteArray.byteArray(prefix.concat(new String(baos.toByteArray())).concat(suffix).getBytes(StandardCharsets.UTF_8));
+				inputArea.setContents(ByteArray.byteArrayOfLength(0));
+				inputArea.setContents(contents);
+			}
+		} else if(source==copyClipboardButton) { //Copy output to Clipboard button
 			ByteArray contents = outputArea.getContents();
 			if(contents.length()>0) {
 				String strContents = new String(contents.getBytes(),StandardCharsets.UTF_8);
@@ -247,8 +323,34 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 				StringSelection ss = new StringSelection(strContents);
 				cb.setContents(ss,ss);
 			}
+		} else if(source==copyFileButton) { //Copy Output to File button
+			int res = copyFileChooser.showOpenDialog(null);
+			if(res == JFileChooser.APPROVE_OPTION) {
+				File destFile = copyFileChooser.getSelectedFile();
+				String absPath = destFile.getAbsolutePath();
+				ByteArray contents = outputArea.getContents();
+				
+				FileOutputStream fos = null;
+				try {
+					fos = new FileOutputStream(destFile);
+					fos.write(contents.getBytes());
+					fos.flush();
+				} catch(Exception ex) {
+					errorLabel.setText(String.format("Error writing to file %s!",absPath));
+					mLogging.logToError(String.format("Error writing to file %s!",absPath));
+					return;
+				}
+				
+				try {
+					fos.close();
+				} catch(Exception ex) {
+					
+				}
+				mLogging.logToOutput(String.format("Output saved to file %s",absPath));
+			}
 		} else if(source==clearOutputButton) { //Clear Output button
 			outputArea.setContents(ByteArray.byteArrayOfLength(0));
+			errorLabel.setText("");
 		}
 	}
 }
