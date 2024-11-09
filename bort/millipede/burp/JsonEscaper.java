@@ -112,20 +112,11 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	public List<Component> provideMenuItems(ContextMenuEvent event) {
 
 		if(event.isFrom(
-		InvocationType.INTRUDER_PAYLOAD_POSITIONS,
 		InvocationType.MESSAGE_EDITOR_REQUEST,
 		InvocationType.MESSAGE_EDITOR_RESPONSE,
 		InvocationType.MESSAGE_VIEWER_REQUEST,
 		InvocationType.MESSAGE_VIEWER_RESPONSE
 		)) {
-			//Re-enable menu items
-			if(!unescapeMenuItem.isEnabled()) unescapeMenuItem.setEnabled(true);
-			if(!escapeKeyMenuItem.isEnabled()) escapeKeyMenuItem.setEnabled(true);
-			if(!unicodeEscapeKeyMenuItem.isEnabled()) unicodeEscapeKeyMenuItem.setEnabled(true);
-			if(!unicodeEscapeAllMenuItem.isEnabled()) unicodeEscapeAllMenuItem.setEnabled(true);
-			if(!unicodeEscapeMenuItem.isEnabled()) unicodeEscapeMenuItem.setEnabled(true);
-			if(!sendToManualTabItem.isEnabled()) sendToManualTabItem.setEnabled(true);
-						
 			//Remove previous ActionListeners containing old event data
 			ActionListener[] listeners = unescapeMenuItem.getActionListeners();
 			int i=0;
@@ -176,18 +167,10 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 			EscaperMenuItemListener sendToManualListener = new EscaperMenuItemListener(mApi,event,escaperTab);
 			sendToManualTabItem.addActionListener(sendToManualListener);
 			
-			if(event.isFrom(InvocationType.INTRUDER_PAYLOAD_POSITIONS)) { //Intruder in-place edit not yet implemented, so disable buttons for now
-				unescapeMenuItem.setEnabled(false);
-				escapeKeyMenuItem.setEnabled(false);
-				unicodeEscapeKeyMenuItem.setEnabled(false);
-				unicodeEscapeAllMenuItem.setEnabled(false);
-				unicodeEscapeMenuItem.setEnabled(false);
-				sendToManualTabItem.setEnabled(false);
-			}
-			JMenu manualSubMenu = new JMenu("Manual Escaper/Unescaper"); //consider refactoring to create submenu object once and just add/remove items as necessary
+			JMenu manualSubMenu = new JMenu("Manual Escaper/Unescaper");
 			manualSubMenu.add(sendToManualTabItem);
 			
-			return List.of(unescapeMenuItem,escapeKeyMenuItem,unicodeEscapeKeyMenuItem,unicodeEscapeAllMenuItem,unicodeEscapeMenuItem,new JSeparator(),manualSubMenu); //consider refactoring to create separator once and adding in same object each time
+			return List.of(unescapeMenuItem,escapeKeyMenuItem,unicodeEscapeKeyMenuItem,unicodeEscapeAllMenuItem,unicodeEscapeMenuItem,new JSeparator(),manualSubMenu);
 		}
 		return List.of();
 	}
@@ -240,7 +223,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 				}
 				
 				//todo: add timestamps to logs?
-				mLogging.logToOutput("sanitizedInput: "+sanitizedInput);
+				if(JsonEscaperSettings.getInstance().getVerboseLogging()) mLogging.logToOutput("sanitizedInput: "+sanitizedInput);
 			}
 		}
 
@@ -248,7 +231,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		try {
 			jsonObj = new JSONObject(String.format("{\"%s\":\"%s\"}",INLINE_JSON_KEY,sanitizedInput)); //Create input JSON inline because unicode-escapes (\\uxxxx) are not interpreted correctly any other way
 		} catch(JSONException jsonE) { //JSON string contains invalid value(s) (either invalid escape(s), or characters that should be escaped with inputted): print stack trace to Extension->Errors tab and throw exception to notify other functions of error
-			mLogging.logToError(input);
+			if(JsonEscaperSettings.getInstance().getVerboseLogging()) mLogging.logToError(input);
 			mLogging.logToError(jsonE.getMessage(),jsonE);
 			throw jsonE;
 		}

@@ -22,10 +22,10 @@ public class UnescapePayloadProcessor implements PayloadProcessor {
 	@Override
 	public PayloadProcessingResult processPayload(PayloadData payloadData) {
 		ByteArray currentPayload = payloadData.currentPayload();
-		String payload = new String(currentPayload.getBytes(),StandardCharsets.UTF_8); //TODO: specify UTF-8 here?
+		String payload = new String(currentPayload.getBytes(),StandardCharsets.UTF_8);
 		PayloadProcessingResult payloadProcessingResult = null;
 		try {
-			payloadProcessingResult = PayloadProcessingResult.usePayload(ByteArray.byteArray(JsonEscaper.unescapeAllChars(payload).getBytes(StandardCharsets.UTF_8))); //TODO: specify UTF-8 here?
+			payloadProcessingResult = PayloadProcessingResult.usePayload(ByteArray.byteArray(JsonEscaper.unescapeAllChars(payload).getBytes(StandardCharsets.UTF_8)));
 		} catch(JSONException jsonE) {
 			payloadProcessingResult = PayloadProcessingResult.usePayload(currentPayload);
 		}

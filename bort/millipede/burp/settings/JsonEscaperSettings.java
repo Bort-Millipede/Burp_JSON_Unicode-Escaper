@@ -45,14 +45,16 @@ public class JsonEscaperSettings {
 		return instance;
 	}
 	
+	public void setDefaultSettings() {
+		charsToEscape = KEY_CHARS_INT;
+		fineTuneUnescaping = true;
+		verboseLogging = false;
+	}
+	
 	//START accessor methods
 	public int[] getCharsToEscape() {
 		return charsToEscape;
 	}
-	
-	/*public byte getCharsInputFormat() {
-		return charsInputFormat;
-	}*/
 	
 	public boolean getFineTuneUnescaping() {
 		return fineTuneUnescaping;

@@ -169,7 +169,7 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 				outputArea.setContents(ByteArray.byteArrayOfLength(0));
 				return;
 			}
-			mLogging.logToOutput("EscaperTab actionPerformed inputArea contents: "+outputVal);
+			if(settings.getVerboseLogging()) mLogging.logToOutput("EscaperTab actionPerformed inputArea contents: "+outputVal);
 			String selectedItem = (String) optionDropdown.getSelectedItem();
 			SwingUtilities.invokeLater(new Runnable() {
 				@Override
@@ -203,7 +203,7 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 							break;
 					}
 					
-					mLogging.logToOutput("EscaperTab outputVal: "+innerOutputVal);
+					if(settings.getVerboseLogging()) mLogging.logToOutput("EscaperTab outputVal: "+innerOutputVal);
 					outputArea.setContents(ByteArray.byteArrayOfLength(0));
 					outputArea.setContents(ByteArray.byteArray(innerOutputVal.getBytes(StandardCharsets.UTF_8)));
 				}
@@ -217,41 +217,43 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 			String textToPaste = null;
 			try {
 				textToPaste = (String) t.getTransferData(DataFlavor.stringFlavor);
-				mLogging.logToOutput("Text to paste: "+textToPaste);
+				if(settings.getVerboseLogging()) mLogging.logToOutput("Text to paste: "+textToPaste);
 			} catch(Exception ex) {
 				//No data in clipboard, or data is not text: do nothing
+				return;
 			}
 			
-			ByteArray contents = inputArea.getContents();
-			String prefix = "";
-			String suffix = "";
-			Optional<Selection> selectionOptional = inputArea.selection();
-			
-			if(selectionOptional.isEmpty()) { //no text selected
-				int caretPosition = inputArea.caretPosition();
-				if(caretPosition == 0) {
-					suffix = new String(contents.getBytes(),StandardCharsets.UTF_8);
-				} else if(caretPosition == contents.length()) {
-					prefix = new String(contents.getBytes(),StandardCharsets.UTF_8);
+			if(textToPaste!=null && textToPaste.length()!=0) {
+				ByteArray contents = inputArea.getContents();
+				String prefix = "";
+				String suffix = "";
+				Optional<Selection> selectionOptional = inputArea.selection();
+				
+				if(selectionOptional.isEmpty()) { //no text selected
+					int caretPosition = inputArea.caretPosition();
+					if(caretPosition == 0) {
+						suffix = new String(contents.getBytes(),StandardCharsets.UTF_8);
+					} else if(caretPosition == contents.length()) {
+						prefix = new String(contents.getBytes(),StandardCharsets.UTF_8);
+					} else {
+						prefix = new String(contents.subArray(0,caretPosition).getBytes(),StandardCharsets.UTF_8);
+						suffix = new String(contents.subArray(caretPosition,contents.length()).getBytes(),StandardCharsets.UTF_8);
+					}
 				} else {
-					prefix = new String(contents.subArray(0,caretPosition).getBytes(),StandardCharsets.UTF_8);
-					suffix = new String(contents.subArray(caretPosition,contents.length()).getBytes(),StandardCharsets.UTF_8);
+					Selection selection = selectionOptional.get();
+					int selectionStart = selection.offsets().startIndexInclusive();
+					int selectionEnd = selection.offsets().endIndexExclusive();
+					if(selectionStart != 0) {
+						prefix = new String(contents.subArray(0,selectionStart).getBytes(),StandardCharsets.UTF_8);
+					}
+					if(selectionEnd != contents.length()) {
+						suffix = new String(contents.subArray(selectionEnd,contents.length()).getBytes(),StandardCharsets.UTF_8);
+					}
 				}
-			} else {
-				Selection selection = selectionOptional.get();
-				int selectionStart = selection.offsets().startIndexInclusive();
-				int selectionEnd = selection.offsets().endIndexExclusive();
-				if(selectionStart != 0) {
-					prefix = new String(contents.subArray(0,selectionStart).getBytes(),StandardCharsets.UTF_8);
-				}
-				if(selectionEnd != contents.length()) {
-					suffix = new String(contents.subArray(selectionEnd,contents.length()).getBytes(),StandardCharsets.UTF_8);
-				}
+				contents = ByteArray.byteArray(prefix.concat(textToPaste).concat(suffix).getBytes(StandardCharsets.UTF_8));
+				inputArea.setContents(ByteArray.byteArrayOfLength(0));
+				inputArea.setContents(contents);
 			}
-			contents = ByteArray.byteArray(prefix.concat(textToPaste).concat(suffix).getBytes(StandardCharsets.UTF_8));
-			inputArea.setContents(ByteArray.byteArrayOfLength(0));
-			inputArea.setContents(contents);
-			
 		} else if(source==pasteFileButton) { //Paste from file button
 			int res = pasteFileChooser.showOpenDialog(null);
 			if(res == JFileChooser.APPROVE_OPTION) {

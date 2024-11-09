@@ -49,8 +49,6 @@ public class EscaperMenuItemListener implements ActionListener {
 		MessageEditorHttpRequestResponse meHttpRequestResponse = null;
 		Range selectionOffsets = null;
 		if(event.messageEditorRequestResponse().isPresent()) {
-			mLogging.logToOutput("MessageEditorHttpRequestResponse present");
-			
 			meHttpRequestResponse = event.messageEditorRequestResponse().get();
 			
 			if(meHttpRequestResponse.selectionOffsets().isEmpty()) {
@@ -59,8 +57,7 @@ public class EscaperMenuItemListener implements ActionListener {
 			selectionOffsets = meHttpRequestResponse.selectionOffsets().get();
 			requestResponse = meHttpRequestResponse.requestResponse();
 		} else {
-			mLogging.logToOutput("MessageEditorHttpRequestResponse NOT present");
-			mLogging.logToOutput("selectedRequestResponses() result set length: "+event.selectedRequestResponses().size());
+			return;
 		}
 		
 		String outputVal = "";
@@ -72,9 +69,6 @@ public class EscaperMenuItemListener implements ActionListener {
 			strMsg = new String(requestResponse.response().toByteArray().getBytes(),StandardCharsets.UTF_8);
 			outputVal = strMsg.substring(selectionOffsets.startIndexInclusive(),selectionOffsets.endIndexExclusive());
 		} else {
-			InvocationType invocationType = event.invocationType();
-			mLogging.logToOutput("containsHttpMessage(): "+invocationType.containsHttpMessage());
-			mLogging.logToOutput("containsHttpRequestResponses(): "+invocationType.containsHttpRequestResponses());
 			return;
 		}
 		
@@ -98,9 +92,7 @@ public class EscaperMenuItemListener implements ActionListener {
 				outputVal = JsonEscaper.unicodeEscapeAllChars(outputVal);
 				break;
 			case JsonEscaper.UNICODE_ESCAPE_CUSTOM_LABEL:
-				int[] charsToEscape = settings.getCharsToEscape();
-				mLogging.logToOutput("EscaperMenuItemListener.actionPerformed() charsToEscape: "+Arrays.toString(charsToEscape));
-				outputVal = JsonEscaper.unicodeEscapeChars(outputVal,charsToEscape);
+				outputVal = JsonEscaper.unicodeEscapeChars(outputVal,settings.getCharsToEscape());
 				break;
 			case JsonEscaper.SEND_TO_MANUAL_TAB:
 				eTab.clearManualOutputArea();
@@ -108,7 +100,7 @@ public class EscaperMenuItemListener implements ActionListener {
 				return;
 		}
 		
-		//mLogging.logToOutput(String.format("%s: %s\r\n",menuItemText,outputVal)); //todo: add timestamps to logs? or remove this altogether
+		if(settings.getVerboseLogging()) mLogging.logToOutput(String.format("%s: %s\r\n",menuItemText,outputVal)); //todo: add timestamps to logs?
 		
 		if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_EDITOR_RESPONSE)) {
 			if(!unescapeError) {
@@ -123,8 +115,6 @@ public class EscaperMenuItemListener implements ActionListener {
 					meHttpRequestResponse.setResponse(HttpResponse.httpResponse(updatedMsg));
 				}
 			}
-		} else if(event.isFrom(InvocationType.INTRUDER_PAYLOAD_POSITIONS)) {
-			//TODO: implement this if possible
 		} else {
 			EscaperPopup popup = new EscaperPopup(mApi,ByteArray.byteArray(outputVal.getBytes(StandardCharsets.UTF_8)),unescapeError);
 			mApi.userInterface().applyThemeToComponent(popup);
