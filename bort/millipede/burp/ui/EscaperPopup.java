@@ -1,6 +1,7 @@
 package bort.millipede.burp.ui;
 
 import bort.millipede.burp.JsonEscaper;
+import bort.millipede.burp.settings.JsonEscaperSettings;
 
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.core.ByteArray;
@@ -10,11 +11,13 @@ import burp.api.montoya.ui.editor.RawEditor;
 
 import java.nio.charset.StandardCharsets;
 
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
+import java.awt.GridLayout;
 import java.awt.Color;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
-import java.awt.event.*;
 import javax.swing.BoxLayout;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -28,7 +31,7 @@ public class EscaperPopup extends JFrame implements ActionListener {
 	private ByteArray contents;
 	private JButton copyButton;
 	private boolean error;
-	private Logging logger;
+	private Logging mLogging;
 	
 	public EscaperPopup(MontoyaApi api,ByteArray inContents,boolean inError) {
 		super(String.format("%s: Converted Text",JsonEscaper.EXTENSION_NAME));
@@ -36,7 +39,7 @@ public class EscaperPopup extends JFrame implements ActionListener {
 		rawEditor = mApi.userInterface().createRawEditor(EditorOptions.READ_ONLY,EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES);
 		contents = inContents;
 		error = inError;
-		logger = mApi.logging();
+		mLogging = mApi.logging();
 		this.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		this.setSize(600,250);
 		this.setLocationRelativeTo(null);
@@ -49,9 +52,11 @@ public class EscaperPopup extends JFrame implements ActionListener {
 			panel.add(errorLabel);
 		}
 		panel.add(rawEditor.uiComponent());
+		JPanel buttonPanel = new JPanel(new GridLayout(1,1));
 		copyButton = new JButton("Copy Full Value To Clipboard");
 		copyButton.addActionListener(this);
-		panel.add(copyButton);
+		buttonPanel.add(copyButton);
+		panel.add(buttonPanel);
 		this.getContentPane().add(panel);
 	}
 	
@@ -60,6 +65,6 @@ public class EscaperPopup extends JFrame implements ActionListener {
 		Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
 		StringSelection ss = new StringSelection(new String(rawEditor.getContents().getBytes(),StandardCharsets.UTF_8));
 		cb.setContents(ss,ss);
-		logger.logToOutput(String.format("%s value from pop-up copied to clipboard")); //todo: add timestamps to logs?
+		if(JsonEscaperSettings.getInstance().getVerboseLogging()) mLogging.logToOutput(String.format("%s value from pop-up copied to clipboard"));
 	}
 }

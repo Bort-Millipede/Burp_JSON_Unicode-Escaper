@@ -4,13 +4,14 @@ import bort.millipede.burp.JsonEscaper;
 import bort.millipede.burp.settings.JsonEscaperSettings;
 
 import burp.api.montoya.MontoyaApi;
-import burp.api.montoya.core.*;
-import burp.api.montoya.ui.*;
-import burp.api.montoya.ui.contextmenu.*;
-import burp.api.montoya.ui.editor.RawEditor;
-import burp.api.montoya.http.message.*;
-import burp.api.montoya.http.message.requests.*;
-import burp.api.montoya.http.message.responses.*;
+import burp.api.montoya.core.ByteArray;
+import burp.api.montoya.core.Range;
+import burp.api.montoya.ui.contextmenu.ContextMenuEvent;
+import burp.api.montoya.ui.contextmenu.MessageEditorHttpRequestResponse;
+import burp.api.montoya.ui.contextmenu.InvocationType;
+import burp.api.montoya.http.message.HttpRequestResponse;
+import burp.api.montoya.http.message.requests.HttpRequest;
+import burp.api.montoya.http.message.responses.HttpResponse;
 import burp.api.montoya.logging.Logging;
 
 import java.util.Arrays;
@@ -100,7 +101,7 @@ public class EscaperMenuItemListener implements ActionListener {
 				return;
 		}
 		
-		if(settings.getVerboseLogging()) mLogging.logToOutput(String.format("%s: %s\r\n",menuItemText,outputVal)); //todo: add timestamps to logs?
+		if(settings.getVerboseLogging()) mLogging.logToOutput(String.format("%s: %s\r\n",menuItemText,outputVal));
 		
 		if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_EDITOR_RESPONSE)) {
 			if(!unescapeError) {

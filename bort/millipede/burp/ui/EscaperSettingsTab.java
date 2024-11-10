@@ -4,13 +4,9 @@ import bort.millipede.burp.JsonEscaper;
 import bort.millipede.burp.settings.JsonEscaperSettings;
 
 import burp.api.montoya.MontoyaApi;
-import burp.api.montoya.core.ByteArray;
 import burp.api.montoya.core.Range;
-import burp.api.montoya.ui.editor.RawEditor;
-import burp.api.montoya.ui.editor.EditorOptions;
 import burp.api.montoya.logging.Logging;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -33,7 +29,20 @@ import java.awt.event.ActionEvent;
 import java.awt.GridLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import javax.swing.*;
+import javax.swing.JPanel;
+import javax.swing.BoxLayout;
+import javax.swing.BorderFactory;
+import javax.swing.JRadioButton;
+import javax.swing.ButtonGroup;
+import javax.swing.JLabel;
+import javax.swing.JTextArea;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JFileChooser;
+import javax.swing.JScrollPane;
+import javax.swing.JOptionPane;
+import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.DocumentEvent;
 import javax.swing.text.DefaultHighlighter;
@@ -71,7 +80,7 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 	private JButton resetSettingsButton;
 	private JLabel settingsErrorLabel;
 	
-	//Constants
+	//START constants
 	//Input format constants
 	private static final byte CHARS_INPUT_FORMAT = 0;
 	private static final byte HEXADECIMAL_INPUT_FORMAT = 1;
@@ -89,14 +98,13 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 	private static final String IMPORTING_ESCAPE_RANGES_TEXT = "Importing escape character ranges...";
 	private static final String IMPORT_BUTTON_ENABLED_TEXT = "Import Settings";
 	private static final String IMPORT_BUTTON_DISABLED_TEXT = "Importing Settings...";
-	//text constants
-	private static final String EX_MESSAGE_HEAD = "For input string: \"";
 	//settings JSON constants
 	private static final String INPUT_FORMAT_JSON_KEY = "inputFormat";
 	private static final String ESCAPE_CHARS_JSON_KEY = "charsToEscape";
 	private static final String INCLUDE_KEY_CHARS_JSON_KEY = "includeKeyChars";
 	private static final String FINE_TUNE_UNESCAPING_JSON_KEY = "fineTuneUnescaping";
 	private static final String VERBOSE_LOGGING_JSON_KEY = "verboseLogging";
+	//END constants
 	
 	EscaperSettingsTab(MontoyaApi api) {
 		super();
@@ -120,7 +128,6 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 		charsFormatButton.addActionListener(this);
 		hexRangesFormatButton = new JRadioButton("Hexdecimal numbers/ranges",false);
 		hexRangesFormatButton.addActionListener(this);
-		//hexRangesFormatButton.setEnabled(false);
 		ButtonGroup bg = new ButtonGroup();
 		bg.add(charsFormatButton);
 		bg.add(hexRangesFormatButton);
@@ -199,12 +206,15 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 		settingsButtonsPanel.add(importSettingsButton);
 		settingsButtonsPanel.add(exportSettingsButton);
 		settingsButtonsPanel.add(resetSettingsButton);
+		settingsButtonsPanel.setMaximumSize(new Dimension(mApi.userInterface().swingUtils().suiteFrame().getWidth(),mApi.userInterface().swingUtils().suiteFrame().getHeight()));
 		innerPanel.add(settingsButtonsPanel);
 		settingsErrorLabel = new JLabel("",SwingConstants.CENTER);
 		settingsErrorLabel.setForeground(Color.RED);
+		settingsErrorLabel.setMaximumSize(new Dimension(mApi.userInterface().swingUtils().suiteFrame().getWidth(),mApi.userInterface().swingUtils().suiteFrame().getHeight()));
 		innerPanel.add(settingsErrorLabel);
 		
 		this.add(innerPanel);
+		this.setMaximumSize(new Dimension(mApi.userInterface().swingUtils().suiteFrame().getWidth(),mApi.userInterface().swingUtils().suiteFrame().getHeight()));
 	}
 	
 	private void switchEscapeUIElements(byte format) {
@@ -261,207 +271,6 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 		deduplicateSortButton.setEnabled(true);
 	}
 	
-	//Convert escape character list to array of Ranges
-	//For use when:
-	//	- switching from characters to hexadecimal ranges
-	//	- pasting text: converting text to hexadecimal ranges
-	private Range[] convertCharsToRanges(String inText) {
-		if(inText==null) return new Range[0];
-		if(inText.length()==0) return new Range[0];
-		
-		//Remove duplicate characters
-		String uniqChars = "";
-		for(int l=0;l<inText.length();l++) {
-			String ch = String.valueOf(inText.charAt(l));
-			if(!uniqChars.contains(ch))
-				uniqChars += ch;
-		}
-		inText = uniqChars;
-		
-		//sort characters
-		char[] inTextChars = inText.toCharArray();
-		Arrays.sort(inTextChars);
-		inText = new String(inTextChars);
-		
-		String[] inputArr = new String[inText.length()];
-		int i=0;
-		while(i<inputArr.length) {
-			inputArr[i] = String.valueOf(inText.charAt(i));
-			i++;
-		}
-		
-		ArrayList<Range> outputList = new ArrayList<Range>();
-		i=0;
-		while(i<inputArr.length) {
-			char curr = inputArr[i].charAt(0);
-			int j=1;
-			char next = curr;
-			while((i+j)<inputArr.length) {
-				next = inputArr[i+j].charAt(0);
-				if(next-curr!=j) {
-					next = inputArr[i+j-1].charAt(0);
-					break;
-				}
-				j++;
-			}
-			
-			if(next == curr) {
-				outputList.add(Range.range((int) curr,(int) curr+1));
-			} else {
-				outputList.add(Range.range((int) curr,(int) next+1));
-				i+=j-1;
-			}
-			i++;
-		}
-		
-		Range[] outArr = new Range[outputList.size()];
-		return outputList.toArray(outArr);
-	}
-	
-	//Convert array of Ranges to range text
-	//For use when:
-	//	- switching from characters to hexadecimal ranges
-	//	- pasting text: converting text to hexadecimal ranges
-	private String convertRangesToText(Range[] inRanges) {
-		if(inRanges==null) return "";
-		if(inRanges.length==0) return "";
-		
-		ArrayList<String> outputList = new ArrayList<String>();
-		for(int i=0;i<inRanges.length;i++) {
-			if(inRanges[i] != null) {
-				int start = inRanges[i].startIndexInclusive();
-				int end = inRanges[i].endIndexExclusive()-1;
-				if(start>end) { //may not even be necessary, but included for good measure
-					start = inRanges[i].endIndexExclusive();
-					end = inRanges[i].startIndexInclusive()-1;
-				}
-				
-				String escaped = Integer.toHexString(start);
-				while(escaped.length()<4) {
-						escaped = "0".concat(escaped);
-				}
-				
-				if(start==end) {
-					outputList.add(escaped);
-				} else {
-					String nextEscaped = Integer.toHexString(end);
-					while(nextEscaped.length()<4) {
-						nextEscaped = "0".concat(nextEscaped);
-					}
-					
-					outputList.add(String.format("%s-%s",escaped,nextEscaped));
-				}
-			}
-		}
-		
-		return String.join(",",outputList.toArray(new String[outputList.size()]));
-	}
-	
-	//convert ranges text to array of Ranges
-	//For use when:
-	//	- updating hexadecimal ranges
-	//	- toggling key chars when using hexadecimal ranges
-	private Range[] convertRangesTextToRanges(String inText) throws UnsupportedEncodingException,NumberFormatException {
-		if(inText == null) return new Range[0];
-		if(inText.length() == 0) return new Range[0];
-		
-		ArrayList<Range> outputList = new ArrayList<Range>();
-		inText = inText.strip();
-		String[] inTextSplit = inText.split(",");
-		String output = "";
-		for(int i=0;i<inTextSplit.length;i++) {
-			String hex = inTextSplit[i].strip();
-			if(hex.length()!=0) {
-				if(hex.contains("-")) {
-					String[] range = hex.split("-",2);
-					
-					//hex beyond 16-bit range (4 digits) is unsupported:
-					if(range[0].length()>4) {
-						throw new UnsupportedEncodingException(String.format("%s%s\"",EX_MESSAGE_HEAD,range[0]));
-					} else if(range[1].length()>4) {
-						throw new UnsupportedEncodingException(String.format("%s%s\"",EX_MESSAGE_HEAD,range[1]));
-					}
-					
-					int start = Integer.parseInt(range[0],16); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
-					int end = Integer.parseInt(range[1],16); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
-						
-					if(start>end) {
-						start = end;
-						end = Integer.parseInt(range[1],16); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
-					}
-					
-					outputList.add(Range.range((int) start,(int) end+1));
-				} else {
-					if(hex.length()>4) {
-						throw new UnsupportedEncodingException(String.format("%s%s\"",EX_MESSAGE_HEAD,hex));
-					}
-					int start = Integer.parseInt(hex,16); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
-					outputList.add(Range.range(start,start+1));
-				}
-			}
-		}
-		
-		Range[] outArr = new Range[outputList.size()];
-		return outputList.toArray(outArr);
-	}
-	
-	//Convert array of Ranges to escape character list
-	//For use when switching from hexadecimal ranges to characters
-	private String convertRangesToChars(String inText) throws UnsupportedEncodingException,NumberFormatException {
-		if(inText==null) return null;
-		if(inText.length()==0) return inText;
-		
-		inText = inText.strip();
-		String[] inTextSplit = inText.split(",");
-		String output = "";
-		for(int i=0;i<inTextSplit.length;i++) {
-			String hex = inTextSplit[i].strip();
-			if(hex.length()!=0) {
-				if(hex.contains("-")) {
-					String[] range = hex.split("-",2);
-					
-					//hex beyond 16-bit range (4 digits) is unsupported:
-					if(range[0].length()>4) {
-						throw new UnsupportedEncodingException(String.format("%s%s\"",EX_MESSAGE_HEAD,range[0]));
-					} else if(range[1].length()>4) {
-						throw new UnsupportedEncodingException(String.format("%s%s\"",EX_MESSAGE_HEAD,range[1]));
-					}
-					
-					int start = Integer.parseInt(range[0],16); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
-					int end = Integer.parseInt(range[1],16); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
-					if(start>end) {
-						start = end;
-						end = Integer.parseInt(range[1],16); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
-					}
-					String[] outChars = new String[(end-start)+1];
-					int j=0;
-					while(start<=end) {
-						outChars[j] = String.valueOf((char) start);
-						start++;
-						j++;
-					}
-					output = output.concat(String.join("",outChars));
-				} else {
-					if(hex.length()>4) {
-						throw new UnsupportedEncodingException(String.format("%s%s\"",EX_MESSAGE_HEAD,hex));
-					}
-					output = output.concat(String.valueOf((char) Integer.parseInt(hex,16))); //java.lang.NumberFormatException thrown when invalid non-hex data entered into ranges field.
-				}
-			}
-		}
-		
-		//remove duplicate characters
-		String uniqChars = "";
-		for(int l=0;l<output.length();l++) {
-			String ch = String.valueOf(output.charAt(l));
-			if(!uniqChars.contains(ch))
-				uniqChars += ch;
-		}
-		output = uniqChars;
-		
-		return output;
-	}
-	
 	//ActionListener method
 	@Override
 	public void actionPerformed(ActionEvent e) {
@@ -477,7 +286,7 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 					public void run() {
 						String escapeChars = null;
 						try {
-							charsToEscapeField.setText(convertRangesToChars(fieldText));
+							charsToEscapeField.setText(EscaperUIHelpers.convertRangesToChars(fieldText));
 						} catch(UnsupportedEncodingException|NumberFormatException ex) {
 							String message = ex.getMessage();
 							if(settings.getVerboseLogging()) mLogging.logToError(message,ex);
@@ -504,8 +313,8 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 				SwingUtilities.invokeLater(new Runnable() {
 					@Override
 					public void run() {
-						Range[] ranges = convertCharsToRanges(fieldText);
-						String rangesText = convertRangesToText(ranges);
+						Range[] ranges = EscaperUIHelpers.convertCharsToRanges(fieldText);
+						String rangesText = EscaperUIHelpers.convertRangesToText(ranges);
 						settings.setCharsToEscape(ranges,includeKeyCharsCheckbox.isSelected());
 						inputFormat = HEXADECIMAL_INPUT_FORMAT;
 						charsToEscapeField.setText(rangesText);
@@ -524,7 +333,7 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 					public void run() {
 						Range[] ranges = null;
 						try {
-							ranges = convertRangesTextToRanges(fieldText);
+							ranges = EscaperUIHelpers.convertRangesTextToRanges(fieldText);
 						} catch(UnsupportedEncodingException|NumberFormatException ex) {
 							String message = ex.getMessage();
 							if(settings.getVerboseLogging()) mLogging.logToError(message,ex);
@@ -553,8 +362,8 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 						pasteButton.setText("Pasting...");
 						String fieldText = charsToEscapeField.getText();
 						if(inputFormat == HEXADECIMAL_INPUT_FORMAT) {
-							Range[] ranges = convertCharsToRanges(pastedData);
-							String pastedRangesText = convertRangesToText(ranges);
+							Range[] ranges = EscaperUIHelpers.convertCharsToRanges(pastedData);
+							String pastedRangesText = EscaperUIHelpers.convertRangesToText(ranges);
 							String fieldTextStripped = fieldText.stripTrailing();
 							if((fieldTextStripped.length()!=0) && (fieldTextStripped.charAt(fieldTextStripped.length()-1)!=','))
 								pastedRangesText = ",".concat(pastedRangesText);
@@ -586,7 +395,7 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 				String fieldText = charsToEscapeField.getText();
 				boolean selected = includeKeyCharsCheckbox.isSelected();
 				try {
-					Range[] ranges = convertRangesTextToRanges(fieldText);
+					Range[] ranges = EscaperUIHelpers.convertRangesTextToRanges(fieldText);
 					settings.setCharsToEscape(ranges,includeKeyCharsCheckbox.isSelected());
 				} catch(UnsupportedEncodingException|NumberFormatException ex) {
 					String message = ex.getMessage();
@@ -653,14 +462,18 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 						}
 						
 						try { //parse verbose logging
-							settings.setVerboseLogging(inSettings.getBoolean(VERBOSE_LOGGING_JSON_KEY));
+							boolean verbose = inSettings.getBoolean(VERBOSE_LOGGING_JSON_KEY);
+							settings.setVerboseLogging(verbose);
+							verboseLoggingCheckbox.setSelected(verbose);
 						} catch(JSONException jsonE) {
 							mLogging.logToError(String.format("Verbose logging setting absent from %s or invalid: skipping import",absPath));
 							if(settings.getVerboseLogging()) mLogging.logToError(jsonE.getMessage(),jsonE);
 						}
 						
 						try { //parse fine-tune unescaping
-							settings.setFineTuneUnescaping(inSettings.getBoolean(FINE_TUNE_UNESCAPING_JSON_KEY));
+							boolean fineTune = inSettings.getBoolean(FINE_TUNE_UNESCAPING_JSON_KEY);
+							settings.setFineTuneUnescaping(fineTune);
+							fineTuneUnescapingCheckbox.setSelected(fineTune);
 						} catch(JSONException jsonE) {
 							mLogging.logToError(String.format("Fine-tune unescaping setting absent from %s or invalid: skipping import",absPath));
 							if(settings.getVerboseLogging()) mLogging.logToError(jsonE.getMessage(),jsonE);
@@ -711,7 +524,7 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 							while(i<escapeCharsJsonArray.length()) {
 								try {
 									int num = escapeCharsJsonArray.getInt(i);
-									if(num<0 || num> 65535) throw new NumberFormatException(String.format("%i is outside of character range",num));
+									if(num<0 || num>65535) throw new NumberFormatException(String.format("%i is outside of character range",num));
 								} catch(JSONException|NumberFormatException ex) {
 									mLogging.logToError(ex.getMessage(),ex);
 									if(settings.getVerboseLogging()) mLogging.logToError(ex.getMessage(),ex);
@@ -735,15 +548,17 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 								}
 							} else {
 								mLogging.logToError(String.format("Escape Character list read from %s contains invalid value(s): skipping import",absPath));
+								charsToEscapeField.setText(fieldText);
 							}
 						} else {
 							mLogging.logToError(String.format("Invalid or empty escape character list read from %s, or escape character list empty: skipping import",absPath));
+							charsToEscapeField.setText(fieldText);
 						}
 						if(escapeChars != null) {
 							settings.setCharsToEscape(escapeChars,keyChars);
 							if(escapeChars.length()>0) {
 								if(inputFormat==HEXADECIMAL_INPUT_FORMAT) {
-									charsToEscapeField.setText(convertRangesToText(convertCharsToRanges(escapeChars)));
+									charsToEscapeField.setText(EscaperUIHelpers.convertRangesToText(EscaperUIHelpers.convertCharsToRanges(escapeChars)));
 								} else if(inputFormat==CHARS_INPUT_FORMAT) {
 									charsToEscapeField.setText(escapeChars);
 								}
@@ -754,7 +569,6 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 						mLogging.logToOutput(String.format("%s settings imported from file %s",JsonEscaper.EXTENSION_NAME,absPath));
 						importSettingsButton.setText(IMPORT_BUTTON_ENABLED_TEXT);
 						importSettingsButton.setEnabled(true);
-						
 					}
 				});
 			}
@@ -820,11 +634,11 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 	}
 	
 	private void highlightHexError(String fieldText,String message) {
-		if(message.indexOf(EX_MESSAGE_HEAD)==0) {
+		if(message.indexOf(EscaperUIHelpers.EX_MESSAGE_HEAD)==0) {
 			charsToEscapeField.setText(fieldText);
-			String input = message.substring(EX_MESSAGE_HEAD.length());
+			String input = message.substring(EscaperUIHelpers.EX_MESSAGE_HEAD.length());
 			input = input.substring(0,input.lastIndexOf('\"'));
-			if(settings.getVerboseLogging()) mLogging.logToOutput("invalid input: "+input);
+			if(settings.getVerboseLogging()) mLogging.logToError("invalid input: "+input);
 			int p0 = fieldText.indexOf(input);
 			int p1 = p0 + input.length();
 			try {
@@ -849,7 +663,7 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 			errorLabel.setText("");
 			applyButton.setEnabled(true);
 		}
-		if(settings.getVerboseLogging()) mLogging.logToOutput(String.format("%s updated from \"Characters to JSON Unicode-escape\" field%s",JsonEscaper.CHARS_TO_ESCAPE_KEY,String.format(" (%s())",method)));
+		if(settings.getVerboseLogging()) mLogging.logToOutput(String.format("Escape Characters updated from \"Characters to JSON Unicode-escape\" field%s",String.format(" (%s())",method)));
 	}
 }
 

@@ -1,6 +1,8 @@
 package bort.millipede.burp.payloadprocessing;
 
-import burp.api.montoya.intruder.*;
+import burp.api.montoya.intruder.PayloadProcessor;
+import burp.api.montoya.intruder.PayloadProcessingResult;
+import burp.api.montoya.intruder.PayloadData;
 import burp.api.montoya.core.ByteArray;
 
 import bort.millipede.burp.JsonEscaper;

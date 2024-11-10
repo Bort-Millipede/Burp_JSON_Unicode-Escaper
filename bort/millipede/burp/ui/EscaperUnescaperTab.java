@@ -4,11 +4,11 @@ import bort.millipede.burp.JsonEscaper;
 import bort.millipede.burp.settings.JsonEscaperSettings;
 
 import burp.api.montoya.MontoyaApi;
-import burp.api.montoya.logging.Logging;
 import burp.api.montoya.core.ByteArray;
 import burp.api.montoya.ui.editor.RawEditor;
 import burp.api.montoya.ui.editor.EditorOptions;
 import burp.api.montoya.ui.Selection;
+import burp.api.montoya.logging.Logging;
 
 import java.util.Optional;
 import java.io.File;
@@ -29,7 +29,14 @@ import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
-import javax.swing.*;
+import javax.swing.JPanel;
+import javax.swing.BoxLayout;
+import javax.swing.JComboBox;
+import javax.swing.JButton;
+import javax.swing.JFileChooser;
+import javax.swing.JLabel;
+import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 
 import org.json.JSONException;
 
@@ -71,7 +78,7 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		inputArea = mApi.userInterface().createRawEditor(EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES);
 		inputArea.setContents(ByteArray.byteArrayOfLength(0));
 		Component inputAreaComponent = inputArea.uiComponent();
-		//inputAreaComponent.setMaximumSize(new Dimension(mApi.userInterface().swingUtils().suiteFrame().getWidth(),mApi.userInterface().swingUtils().suiteFrame().getHeight())); //Need to add this in to prevent window from going crazy on large pastes
+		//Still working on compensating for large pastes that cause the window to become VERY long
 		this.add(inputAreaComponent);
 		
 		//middle button panel
@@ -123,11 +130,8 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		this.add(outputLabelPanel);
 		outputArea = mApi.userInterface().createRawEditor(EditorOptions.READ_ONLY,EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES);
 		Component outputAreaComponent = outputArea.uiComponent();
-		//outputAreaComponent.setMaximumSize(new Dimension(mApi.userInterface().swingUtils().suiteFrame().getWidth(),mApi.userInterface().swingUtils().suiteFrame().getHeight())); //Need to add this in to prevent window from going crazy on large pastes
+		//Still working on compensating for large pastes that cause the window to become VERY long
 		this.add(outputAreaComponent);
-		
-		//inputAreaComponent.setMaximumSize(new Dimension(mApi.userInterface().swingUtils().suiteFrame().getWidth(),inputAreaComponent.getHeight())); //Need to add this in to prevent window from going crazy on large pastes
-		//outputAreaComponent.setMaximumSize(new Dimension(mApi.userInterface().swingUtils().suiteFrame().getWidth(),outputAreaComponent.getHeight())); //Need to add this in to prevent window from going crazy on large pastes
 	}
 	
 	RawEditor getInputArea() {
@@ -163,7 +167,6 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 			}
 		} else if(source==escapeUnescapeButton) { //Escape/Unescape button
 			errorLabel.setText("");
-			//errorLabel.setForeground(errorLabelColor);
 			String outputVal = new String(inputArea.getContents().getBytes(),StandardCharsets.UTF_8);
 			if(outputVal.length()==0) {
 				outputArea.setContents(ByteArray.byteArrayOfLength(0));

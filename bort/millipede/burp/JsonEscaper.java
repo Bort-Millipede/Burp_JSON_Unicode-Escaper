@@ -1,26 +1,25 @@
 package bort.millipede.burp;
 
-import burp.api.montoya.*;
+import burp.api.montoya.BurpExtension;
+import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.extension.Extension;
-import burp.api.montoya.intruder.*;
-import burp.api.montoya.ui.*;
-import burp.api.montoya.ui.contextmenu.*;
-import burp.api.montoya.persistence.*;
-import burp.api.montoya.core.*;
-import burp.api.montoya.http.message.*;
-import burp.api.montoya.http.message.requests.*;
-import burp.api.montoya.http.message.responses.*;
-import burp.api.montoya.logging.*;
+import burp.api.montoya.intruder.Intruder;
+import burp.api.montoya.ui.UserInterface;
+import burp.api.montoya.ui.contextmenu.ContextMenuItemsProvider;
+import burp.api.montoya.ui.contextmenu.ContextMenuEvent;
+import burp.api.montoya.ui.contextmenu.InvocationType;
+import burp.api.montoya.logging.Logging;
 
-import bort.millipede.burp.payloadprocessing.*;
-import bort.millipede.burp.ui.*;
+import bort.millipede.burp.payloadprocessing.UnescapePayloadProcessor;
+import bort.millipede.burp.payloadprocessing.EscapeKeyCharsPayloadProcessor;
+import bort.millipede.burp.payloadprocessing.UnicodeEscapeKeyCharsPayloadProcessor;
+import bort.millipede.burp.payloadprocessing.UnicodeEscapeAllCharsPayloadProcessor;
+import bort.millipede.burp.payloadprocessing.UnicodeEscapePayloadProcessor;
+import bort.millipede.burp.ui.JsonEscaperTab;
+import bort.millipede.burp.ui.EscaperMenuItemListener;
 import bort.millipede.burp.settings.JsonEscaperSettings;
 
 import java.util.List;
-import java.util.Iterator;
-import java.util.stream.IntStream;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 
 import java.awt.Component;
 import java.awt.event.ActionListener;
@@ -41,7 +40,6 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	private UserInterface bUI;
 	
 	//static BurpExtension variables;
-	private static Preferences bPreferences;
 	private static Logging mLogging;
 	
 	//ContextMenuItems
@@ -71,8 +69,6 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	public static final String SEND_TO_MANUAL_TAB = "Send to Manual Escaper/Unescaper";
 	//JSON processing constants
 	public static final String INLINE_JSON_KEY = "input";
-	//Preferences keys
-	public static final String CHARS_TO_ESCAPE_KEY = "JsonEscaper.charsToEscape";
 	//END constants
 	
 	@Override
@@ -86,7 +82,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		bIntruder.registerPayloadProcessor(new EscapeKeyCharsPayloadProcessor());
 		bIntruder.registerPayloadProcessor(new UnicodeEscapeKeyCharsPayloadProcessor());
 		bIntruder.registerPayloadProcessor(new UnicodeEscapeAllCharsPayloadProcessor());
-		bIntruder.registerPayloadProcessor(new UnicodeEscapePayloadProcessor(mApi));
+		bIntruder.registerPayloadProcessor(new UnicodeEscapePayloadProcessor());
 		
 		bUI = mApi.userInterface();
 		
@@ -103,7 +99,6 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		escaperTab = new JsonEscaperTab(mApi);
 		bUI.applyThemeToComponent(escaperTab);
 		bUI.registerSuiteTab(EXTENSION_NAME,escaperTab);
-		bPreferences = mApi.persistence().preferences();
 		mLogging = mApi.logging();
 		mLogging.logToOutput(String.format("%s v%s initialized.",EXTENSION_NAME,EXTENSION_VERSION));
 	}
@@ -111,12 +106,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	@Override
 	public List<Component> provideMenuItems(ContextMenuEvent event) {
 
-		if(event.isFrom(
-		InvocationType.MESSAGE_EDITOR_REQUEST,
-		InvocationType.MESSAGE_EDITOR_RESPONSE,
-		InvocationType.MESSAGE_VIEWER_REQUEST,
-		InvocationType.MESSAGE_VIEWER_RESPONSE
-		)) {
+		if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_EDITOR_RESPONSE,InvocationType.MESSAGE_VIEWER_REQUEST,InvocationType.MESSAGE_VIEWER_RESPONSE)) {
 			//Remove previous ActionListeners containing old event data
 			ActionListener[] listeners = unescapeMenuItem.getActionListeners();
 			int i=0;
@@ -182,7 +172,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		if(input.length()==0) return input;
 		if(!input.contains("\\")) return input; //do not process input not containing \ characters (implying no escaping in input)
 		
-		//If enabled in Settings menu: Attempt to prevent errors when processing text that is not actually escaped.
+		//If "Fine-tune unescaping to avoid errors" enabled in Settings menu: Attempt to prevent errors when processing text that is not actually escaped.
 		String sanitizedInput = input;
 		if(JsonEscaperSettings.getInstance().getFineTuneUnescaping()) {
 			if(sanitizedInput.contains("\n")) sanitizedInput = sanitizedInput.replace("\n","\\u000a"); //escape raw newline characters if present
@@ -222,7 +212,6 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 					i--;
 				}
 				
-				//todo: add timestamps to logs?
 				if(JsonEscaperSettings.getInstance().getVerboseLogging()) mLogging.logToOutput("sanitizedInput: "+sanitizedInput);
 			}
 		}
@@ -230,9 +219,9 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		JSONObject jsonObj = null;
 		try {
 			jsonObj = new JSONObject(String.format("{\"%s\":\"%s\"}",INLINE_JSON_KEY,sanitizedInput)); //Create input JSON inline because unicode-escapes (\\uxxxx) are not interpreted correctly any other way
-		} catch(JSONException jsonE) { //JSON string contains invalid value(s) (either invalid escape(s), or characters that should be escaped with inputted): print stack trace to Extension->Errors tab and throw exception to notify other functions of error
+		} catch(JSONException jsonE) { //JSON string contains invalid value(s) (either invalid escape(s), or characters that should be escaped when placed into inline JSON): print stack trace to Extension->Errors tab and throw exception to notify other functions of error
 			if(JsonEscaperSettings.getInstance().getVerboseLogging()) mLogging.logToError(input);
-			mLogging.logToError(jsonE.getMessage(),jsonE);
+			if(JsonEscaperSettings.getInstance().getVerboseLogging()) mLogging.logToError(jsonE.getMessage(),jsonE);
 			throw jsonE;
 		}
 		return (String) jsonObj.get(INLINE_JSON_KEY);

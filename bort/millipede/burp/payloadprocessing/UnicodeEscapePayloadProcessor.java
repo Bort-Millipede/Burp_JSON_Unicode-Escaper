@@ -1,9 +1,9 @@
 package bort.millipede.burp.payloadprocessing;
 
-import burp.api.montoya.MontoyaApi;
-import burp.api.montoya.intruder.*;
+import burp.api.montoya.intruder.PayloadProcessor;
+import burp.api.montoya.intruder.PayloadProcessingResult;
+import burp.api.montoya.intruder.PayloadData;
 import burp.api.montoya.core.ByteArray;
-import burp.api.montoya.persistence.Preferences;
 
 import bort.millipede.burp.JsonEscaper;
 import bort.millipede.burp.settings.JsonEscaperSettings;
@@ -11,11 +11,9 @@ import bort.millipede.burp.settings.JsonEscaperSettings;
 import java.nio.charset.StandardCharsets;
 
 public class UnicodeEscapePayloadProcessor implements PayloadProcessor {
-	private MontoyaApi mApi;
 	private JsonEscaperSettings settings;
 	
-	public UnicodeEscapePayloadProcessor(MontoyaApi api) {
-		mApi = api;
+	public UnicodeEscapePayloadProcessor() {
 		settings = JsonEscaperSettings.getInstance();
 	}
 	
