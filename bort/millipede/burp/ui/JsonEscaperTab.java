@@ -25,7 +25,7 @@ public class JsonEscaperTab extends JPanel {
 		JTabbedPane tabbedPane = new JTabbedPane();
 		
 		escaperUnescaperTab = new EscaperUnescaperTab(mApi);
-		tabbedPane.addTab("Manual Escaper/Unescaper",new JScrollPane(escaperUnescaperTab));
+		tabbedPane.addTab("Manual Escaper/Unescaper",escaperUnescaperTab);
 		
 		settingsTab = new EscaperSettingsTab(mApi);
 		tabbedPane.addTab("Settings",new JScrollPane(settingsTab));

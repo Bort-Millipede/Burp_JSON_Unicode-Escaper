@@ -229,7 +229,6 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 			hexRangesFormatButton.setSelected(true);
 			charsToEscapeLabel.setText(ESCAPE_CHARS_LABEL_RANGES_TEXT);
 			applyButton.setText(APPLY_BUTTON_RANGES_TEXT);
-			applyButton.setEnabled(true);
 			pasteButton.setText(PASTE_BUTTON_RANGES_TEXT);
 			deduplicateSortButton.setEnabled(false);
 		}
@@ -269,6 +268,39 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 		charsToEscapeField.setEditable(true);
 		pasteButton.setEnabled(true);
 		deduplicateSortButton.setEnabled(true);
+	}
+	
+		private void highlightHexError(String fieldText,String message) {
+		if(message.indexOf(EscaperUIHelpers.EX_MESSAGE_HEAD)==0) {
+			charsToEscapeField.setText(fieldText);
+			String input = message.substring(EscaperUIHelpers.EX_MESSAGE_HEAD.length());
+			input = input.substring(0,input.lastIndexOf('\"'));
+			if(settings.getVerboseLogging()) mLogging.logToError("invalid input: "+input);
+			int highlightStart = fieldText.indexOf(input);
+			int highlightEnd = highlightStart + input.length();
+			try {
+				charsToEscapeFieldHighlighter.addHighlight(highlightStart,highlightEnd,errorHighlightPainter);
+			} catch(Exception e) {
+				if(settings.getVerboseLogging()) mLogging.logToError(e.getMessage(),e);
+			}
+		}
+		errorLabel.setText(ERROR_LABEL_TEXT);
+	}
+	
+	private void documentListenerUpdates(String method) {
+		if(inputFormat == CHARS_INPUT_FORMAT) {
+			applyButton.setText(APPLY_BUTTON_CHARS_TEXT);
+			applyButton.setEnabled(false);
+			if(includeKeyCharsCheckbox.isSelected()) {
+				settings.setCharsToEscape(charsToEscapeField.getText(),includeKeyCharsCheckbox.isSelected());
+				if(settings.getVerboseLogging()) mLogging.logToOutput("Chars to escape field set in "+method+"() to: "+charsToEscapeField.getText());
+			}
+		} else if(inputFormat == HEXADECIMAL_INPUT_FORMAT) {
+			charsToEscapeField.getHighlighter().removeAllHighlights();
+			errorLabel.setText("");
+			applyButton.setEnabled(true);
+		}
+		if(settings.getVerboseLogging()) mLogging.logToOutput(String.format("Escape Characters updated from \"Characters to JSON Unicode-escape\" field%s",String.format(" (%s())",method)));
 	}
 	
 	//ActionListener method
@@ -559,6 +591,7 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 							if(escapeChars.length()>0) {
 								if(inputFormat==HEXADECIMAL_INPUT_FORMAT) {
 									charsToEscapeField.setText(EscaperUIHelpers.convertRangesToText(EscaperUIHelpers.convertCharsToRanges(escapeChars)));
+									applyButton.setEnabled(false);
 								} else if(inputFormat==CHARS_INPUT_FORMAT) {
 									charsToEscapeField.setText(escapeChars);
 								}
@@ -631,39 +664,6 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 	@Override	
 	public void removeUpdate(DocumentEvent e) {
 		documentListenerUpdates("removeUpdate");
-	}
-	
-	private void highlightHexError(String fieldText,String message) {
-		if(message.indexOf(EscaperUIHelpers.EX_MESSAGE_HEAD)==0) {
-			charsToEscapeField.setText(fieldText);
-			String input = message.substring(EscaperUIHelpers.EX_MESSAGE_HEAD.length());
-			input = input.substring(0,input.lastIndexOf('\"'));
-			if(settings.getVerboseLogging()) mLogging.logToError("invalid input: "+input);
-			int p0 = fieldText.indexOf(input);
-			int p1 = p0 + input.length();
-			try {
-				charsToEscapeFieldHighlighter.addHighlight(p0,p1,errorHighlightPainter);
-			} catch(Exception e) {
-				if(settings.getVerboseLogging()) mLogging.logToError(e.getMessage(),e);
-			}
-		}
-		errorLabel.setText(ERROR_LABEL_TEXT);
-	}
-	
-	private void documentListenerUpdates(String method) {
-		if(inputFormat == CHARS_INPUT_FORMAT) {
-			applyButton.setText(APPLY_BUTTON_CHARS_TEXT);
-			applyButton.setEnabled(false);
-			if(includeKeyCharsCheckbox.isSelected()) {
-				settings.setCharsToEscape(charsToEscapeField.getText(),includeKeyCharsCheckbox.isSelected());
-				if(settings.getVerboseLogging()) mLogging.logToOutput("Chars to escape field set in "+method+"() to: "+charsToEscapeField.getText());
-			}
-		} else if(inputFormat == HEXADECIMAL_INPUT_FORMAT) {
-			charsToEscapeField.getHighlighter().removeAllHighlights();
-			errorLabel.setText("");
-			applyButton.setEnabled(true);
-		}
-		if(settings.getVerboseLogging()) mLogging.logToOutput(String.format("Escape Characters updated from \"Characters to JSON Unicode-escape\" field%s",String.format(" (%s())",method)));
 	}
 }
 

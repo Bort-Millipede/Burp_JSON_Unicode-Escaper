@@ -20,7 +20,6 @@ import java.nio.charset.StandardCharsets;
 
 import java.awt.Component;
 import java.awt.GridLayout;
-import java.awt.Dimension;
 import java.awt.Color;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
@@ -78,7 +77,6 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		inputArea = mApi.userInterface().createRawEditor(EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES);
 		inputArea.setContents(ByteArray.byteArrayOfLength(0));
 		Component inputAreaComponent = inputArea.uiComponent();
-		//Still working on compensating for large pastes that cause the window to become VERY long
 		this.add(inputAreaComponent);
 		
 		//middle button panel
@@ -130,10 +128,9 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		this.add(outputLabelPanel);
 		outputArea = mApi.userInterface().createRawEditor(EditorOptions.READ_ONLY,EditorOptions.SHOW_NON_PRINTABLE_CHARACTERS,EditorOptions.WRAP_LINES);
 		Component outputAreaComponent = outputArea.uiComponent();
-		//Still working on compensating for large pastes that cause the window to become VERY long
 		this.add(outputAreaComponent);
 	}
-	
+		
 	RawEditor getInputArea() {
 		return inputArea;
 	}
