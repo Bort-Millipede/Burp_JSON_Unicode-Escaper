@@ -24,7 +24,7 @@ public class UnicodeEscapePayloadProcessor implements PayloadProcessor {
 	
 	@Override
 	public PayloadProcessingResult processPayload(PayloadData payloadData) {
-		String escapedPayload = JsonEscaper.unicodeEscapeChars(payloadData.currentPayload().toString(),settings.getCharsToEscape());
+		String escapedPayload = JsonEscaper.unicodeEscapeChars(new String(payloadData.currentPayload().getBytes(),StandardCharsets.UTF_8),settings.getCharsToEscape());
 		return PayloadProcessingResult.usePayload(ByteArray.byteArray(escapedPayload.getBytes(StandardCharsets.UTF_8)));
 	}
 }

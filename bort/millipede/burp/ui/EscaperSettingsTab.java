@@ -180,7 +180,7 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 		fineTuneUnescapingCheckbox = new JCheckBox("",settings.getFineTuneUnescaping());
 		fineTuneUnescapingCheckbox.addActionListener(this);
 		innerGlobalPanel.add(fineTuneUnescapingCheckbox);
-		innerGlobalPanel.add(new JLabel("Verbose logging in Extension \"Output\" tab:",SwingConstants.RIGHT));
+		innerGlobalPanel.add(new JLabel("Verbose logging in Extension \"Output\"/\"Errors\":",SwingConstants.RIGHT));
 		verboseLoggingCheckbox = new JCheckBox("",settings.getVerboseLogging());
 		verboseLoggingCheckbox.addActionListener(this);
 		innerGlobalPanel.add(verboseLoggingCheckbox);
@@ -610,6 +610,7 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 			if(res == JFileChooser.APPROVE_OPTION) {
 				File destFile = exportSettingsChooser.getSelectedFile();
 				String absPath = destFile.getAbsolutePath();
+				settingsErrorLabel.setText("");
 				
 				JSONObject outSettings = new JSONObject();
 				outSettings.put(INPUT_FORMAT_JSON_KEY,inputFormat);
@@ -624,6 +625,7 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 					fos.write(outSettings.toString(1).getBytes(StandardCharsets.UTF_8));
 					fos.flush();
 				} catch(Exception ex) {
+					settingsErrorLabel.setText(String.format("Error writing to file %s!",absPath));
 					mLogging.logToError(String.format("Error writing to file %s!",absPath));
 					return;
 				}
@@ -638,6 +640,7 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 		} else if(source == resetSettingsButton) {
 			int res = JOptionPane.showConfirmDialog(null,String.format("Restore %s Settings to Defaults?",JsonEscaper.EXTENSION_NAME),"Restore Default Settings",JOptionPane.YES_NO_OPTION,JOptionPane.WARNING_MESSAGE);
 			if(res == JOptionPane.YES_OPTION) {
+				settingsErrorLabel.setText("");
 				settings.setDefaultSettings();
 				inputFormat = CHARS_INPUT_FORMAT;
 				switchEscapeUIElements(inputFormat);
