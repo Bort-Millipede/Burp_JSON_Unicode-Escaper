@@ -42,14 +42,6 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	//static BurpExtension variables;
 	private static Logging mLogging;
 	
-	//ContextMenuItems
-	private JMenuItem unescapeMenuItem;
-	private JMenuItem escapeKeyMenuItem;
-	private JMenuItem unicodeEscapeKeyMenuItem;
-	private JMenuItem unicodeEscapeAllMenuItem;
-	private JMenuItem unicodeEscapeMenuItem;
-	private JMenuItem sendToManualTabItem;
-	
 	//Settings
 	private JsonEscaperSettings settings;
 	
@@ -87,12 +79,6 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		bUI = mApi.userInterface();
 		
 		bUI.registerContextMenuItemsProvider(this);
-		unescapeMenuItem = new JMenuItem(UNESCAPE_LABEL);
-		escapeKeyMenuItem = new JMenuItem(ESCAPE_KEY_LABEL);
-		unicodeEscapeKeyMenuItem = new JMenuItem(UNICODE_ESCAPE_KEY_LABEL);
-		unicodeEscapeAllMenuItem = new JMenuItem(UNICODE_ESCAPE_ALL_LABEL);
-		unicodeEscapeMenuItem = new JMenuItem(UNICODE_ESCAPE_CUSTOM_LABEL);
-		sendToManualTabItem = new JMenuItem(SEND_TO_MANUAL_TAB);
 		
 		settings = JsonEscaperSettings.getInstance();
 		
@@ -107,45 +93,16 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	public List<Component> provideMenuItems(ContextMenuEvent event) {
 
 		if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST,InvocationType.MESSAGE_EDITOR_RESPONSE,InvocationType.MESSAGE_VIEWER_REQUEST,InvocationType.MESSAGE_VIEWER_RESPONSE)) {
-			//Remove previous ActionListeners containing old event data
-			ActionListener[] listeners = unescapeMenuItem.getActionListeners();
-			int i=0;
-			while(i<listeners.length) {
-				unescapeMenuItem.removeActionListener(listeners[i]);
-				i++;
-			}
-			listeners = escapeKeyMenuItem.getActionListeners();
-			i=0;
-			while(i<listeners.length) {
-				escapeKeyMenuItem.removeActionListener(listeners[i]);
-				i++;
-			}
-			listeners = unicodeEscapeKeyMenuItem.getActionListeners();
-			i=0;
-			while(i<listeners.length) {
-				unicodeEscapeKeyMenuItem.removeActionListener(listeners[i]);
-				i++;
-			}
-			listeners = unicodeEscapeAllMenuItem.getActionListeners();
-			i=0;
-			while(i<listeners.length) {
-				unicodeEscapeAllMenuItem.removeActionListener(listeners[i]);
-				i++;
-			}
-			listeners = unicodeEscapeMenuItem.getActionListeners();
-			i=0;
-			while(i<listeners.length) {
-				unicodeEscapeMenuItem.removeActionListener(listeners[i]);
-				i++;
-			}
-			listeners = sendToManualTabItem.getActionListeners();
-			i=0;
-			while(i<listeners.length) {
-				sendToManualTabItem.removeActionListener(listeners[i]);
-				i++;
-			}
 			
-			//Add listener for in-place escape/unescape menu items
+			//Create menu items
+			JMenuItem unescapeMenuItem = new JMenuItem(UNESCAPE_LABEL);
+			JMenuItem escapeKeyMenuItem = new JMenuItem(ESCAPE_KEY_LABEL);
+			JMenuItem unicodeEscapeKeyMenuItem = new JMenuItem(UNICODE_ESCAPE_KEY_LABEL);
+			JMenuItem unicodeEscapeAllMenuItem = new JMenuItem(UNICODE_ESCAPE_ALL_LABEL);
+			JMenuItem unicodeEscapeMenuItem = new JMenuItem(UNICODE_ESCAPE_CUSTOM_LABEL);
+			JMenuItem sendToManualTabItem = new JMenuItem(SEND_TO_MANUAL_TAB);
+			
+			//Create Add listener for in-place escape/unescape menu items			
 			EscaperMenuItemListener listener = new EscaperMenuItemListener(mApi,event);
 			unescapeMenuItem.addActionListener(listener);
 			escapeKeyMenuItem.addActionListener(listener);
