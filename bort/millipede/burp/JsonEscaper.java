@@ -129,58 +129,79 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 		if(input.length()==0) return input;
 		if(!input.contains("\\")) return input; //do not process input not containing \ characters (implying no escaping in input)
 		
-		//If "Fine-tune unescaping to avoid errors" enabled in Settings menu: Attempt to prevent errors when processing text that is not actually escaped.
-		String sanitizedInput = input;
-		if(JsonEscaperSettings.getInstance().getFineTuneUnescaping()) {
-			if(sanitizedInput.contains("\n")) sanitizedInput = sanitizedInput.replace("\n","\\u000a"); //escape raw newline characters if present
-			if(sanitizedInput.contains("\r")) sanitizedInput = sanitizedInput.replace("\r","\\u000d"); //escape raw newline characters if present
-			if(sanitizedInput.contains("\"")) { //" characters in string to potentially unescape: properly escape " and \ characters for inline JSON if necessary
-				int i=sanitizedInput.length()-1;
+		//String sanitizedInput = input;
+		JSONObject jsonObj = null;
+		try {
+			jsonObj = new JSONObject(String.format("{\"%s\":\"%s\"}",INLINE_JSON_KEY,input)); //Create input JSON inline because unicode-escapes (\\uxxxx) are not interpreted correctly any other way; will consider replacing in future
+		} catch(JSONException jsonE) { //first unescape attempt failed: attempt to unescape again after fine-tuning (if enabled), or throw error.
+			if(JsonEscaperSettings.getInstance().getFineTuneUnescaping()) {
+				int i=input.length()-1;
+				String sanitizedInput = "";
+				
 				while(i>=0) {
-					if(sanitizedInput.charAt(i)=='\"') { //" character found
-						int end = i;
-						int backslashCount = 0;
-						if(i>0) { //count \ characters preceding "
+					char ch = input.charAt(i);
+					String escaped = new String(new char[] {ch});
+					if(ch>=0 && ch<=31) { //ASCII 0x00-0x1f
+						escaped = Integer.toHexString(ch);
+						while(escaped.length()<4) {
+							escaped = "0".concat(escaped);
+						}
+						escaped = String.format("\\u%s",escaped);
+					} else if(ch=='\"') { //" characters in string to potentially unescape: Unicode-escape " characters and adjust backslash count (if necessary)
+						if(i>0) {
 							i--;
-							char prev = sanitizedInput.charAt(i);
+							int backslashCount = 0;
+							char prev = input.charAt(i);
 							while(i>=0 && prev=='\\') {
 								backslashCount++;
 								i--;
-								prev = sanitizedInput.charAt(i);
+								if(i>=0) {
+									prev = input.charAt(i);
+								}
 							}
-							i++;
+							
+							if(backslashCount<2) {
+								escaped = "\\u0022";
+							} else {
+								escaped = "";
+								backslashCount = backslashCount/2;
+								int j=1;
+								while(j<(backslashCount+1)) {
+									escaped = escaped.concat("\\u005c");
+									j++;
+								}
+								escaped = escaped.concat("\\u0022");
+							}
+							
+							i++; //prevent off-by-one issues later.
+						} else {
+							escaped = "\\u0022";
 						}
-						
-						String quoteBackslashReplace = "";
-						int j=0;
-						while(j<(backslashCount/2)) { //replace escaped \ characters with unicode-escaped \ characters
-							quoteBackslashReplace = quoteBackslashReplace.concat("\\u005c");
-							j++;
-						}
-						quoteBackslashReplace = quoteBackslashReplace.concat("\\u0022"); //unicode-escape " character
-						
-						String prefix = sanitizedInput.substring(0,i);
-						String suffix = "";
-						if(sanitizedInput.length()!=end+1) {
-							suffix = sanitizedInput.substring(end+1,sanitizedInput.length());
-						}
-						sanitizedInput = prefix.concat(quoteBackslashReplace).concat(suffix); //replace original " and \ characters discovered above with unicode-escape characters
-					}
+					} //possible TODO: try and ignore invalid escape sequences.
+					if(escaped.length()>1) escaped = new StringBuilder(escaped).reverse().toString(); //reverse escaped character(s) values because string is being built backwards
+					
+					sanitizedInput = sanitizedInput.concat(escaped);
 					i--;
 				}
+				sanitizedInput = new StringBuilder(sanitizedInput).reverse().toString(); //reverse backwards string to forwards
+				mLogging.logToOutput("sanitizedInput: "+sanitizedInput);
 				
-				if(JsonEscaperSettings.getInstance().getVerboseLogging()) mLogging.logToOutput("sanitizedInput: "+sanitizedInput);
+				try {
+					jsonObj = new JSONObject(String.format("{\"%s\":\"%s\"}",INLINE_JSON_KEY,sanitizedInput)); //Create input JSON inline because unicode-escapes (\\uxxxx) are not interpreted correctly any other way; will consider replacing in future
+				} catch(JSONException jsonE2) { //second unescape failed: throw error
+					if(JsonEscaperSettings.getInstance().getVerboseLogging()) mLogging.logToError(input);
+					if(JsonEscaperSettings.getInstance().getVerboseLogging()) mLogging.logToError(jsonE.getMessage(),jsonE);
+					if(JsonEscaperSettings.getInstance().getVerboseLogging()) mLogging.logToError(jsonE2.getMessage(),jsonE2);
+					throw jsonE2;
+				}
+				
+			} else {
+				if(JsonEscaperSettings.getInstance().getVerboseLogging()) mLogging.logToError(input);
+				if(JsonEscaperSettings.getInstance().getVerboseLogging()) mLogging.logToError(jsonE.getMessage(),jsonE);
+				throw jsonE;
 			}
 		}
-
-		JSONObject jsonObj = null;
-		try {
-			jsonObj = new JSONObject(String.format("{\"%s\":\"%s\"}",INLINE_JSON_KEY,sanitizedInput)); //Create input JSON inline because unicode-escapes (\\uxxxx) are not interpreted correctly any other way
-		} catch(JSONException jsonE) { //JSON string contains invalid value(s) (either invalid escape(s), or characters that should be escaped when placed into inline JSON): print stack trace to Extension->Errors tab and throw exception to notify other functions of error
-			if(JsonEscaperSettings.getInstance().getVerboseLogging()) mLogging.logToError(input);
-			if(JsonEscaperSettings.getInstance().getVerboseLogging()) mLogging.logToError(jsonE.getMessage(),jsonE);
-			throw jsonE;
-		}
+		
 		return (String) jsonObj.get(INLINE_JSON_KEY);
 	}
 	

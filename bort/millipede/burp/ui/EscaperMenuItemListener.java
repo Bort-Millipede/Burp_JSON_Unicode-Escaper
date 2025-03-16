@@ -107,7 +107,7 @@ public class EscaperMenuItemListener implements ActionListener {
 			if(!unescapeError) {
 				String updatedMsgStr = strMsg.substring(0,selectionOffsets.startIndexInclusive());
 				updatedMsgStr = updatedMsgStr.concat(outputVal);
-				if(selectionOffsets.endIndexExclusive()!=strMsg.length()-1)
+				if(selectionOffsets.endIndexExclusive()!=strMsg.length())
 					updatedMsgStr = updatedMsgStr.concat(strMsg.substring(selectionOffsets.endIndexExclusive()));
 				ByteArray updatedMsg = ByteArray.byteArray(updatedMsgStr.getBytes(StandardCharsets.UTF_8));
 				if(event.isFrom(InvocationType.MESSAGE_EDITOR_REQUEST)) {
