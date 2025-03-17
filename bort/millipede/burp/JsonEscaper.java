@@ -184,7 +184,6 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 					i--;
 				}
 				sanitizedInput = new StringBuilder(sanitizedInput).reverse().toString(); //reverse backwards string to forwards
-				mLogging.logToOutput("sanitizedInput: "+sanitizedInput);
 				
 				try {
 					jsonObj = new JSONObject(String.format("{\"%s\":\"%s\"}",INLINE_JSON_KEY,sanitizedInput)); //Create input JSON inline because unicode-escapes (\\uxxxx) are not interpreted correctly any other way; will consider replacing in future
