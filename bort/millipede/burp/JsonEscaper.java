@@ -51,7 +51,7 @@ public class JsonEscaper implements BurpExtension,ContextMenuItemsProvider {
 	//START constants
 	//general
 	public static final String EXTENSION_NAME = "JSON Unicode-Escaper";
-	public static final String EXTENSION_VERSION = "0.1";
+	public static final String EXTENSION_VERSION = "0.2";
 	//ContextMenuItems labels
 	public static final String UNESCAPE_LABEL = "JSON-unescape";
 	public static final String ESCAPE_KEY_LABEL = "JSON-escape key chars";
