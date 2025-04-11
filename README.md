@@ -31,7 +31,7 @@ The extender works with both Burp Suite Community and Burp Suite Professional. T
 
 ### Building
 
-**Note:** Building the extender is not necessary, as a prebuilt JAR file is available on the [Releases](https://github.com/Bort-Millipede/burp_JSON_Unicode-Escaper/releases) page. But if a manually-built extender is preferred (ex. to incorporate code changes not included in the latest release jar), provided here are the build instructions.
+**Note:** Building the extender is not necessary, as a prebuilt JAR file is available on the [Releases](https://github.com/Bort-Millipede/burp_JSON_Unicode-Escaper/releases) page and a [JSON Unicode-Escaper BApp](https://portswigger.net/bappstore/aebed6627d6348679d6c43f985958eca) is available in the BApp Store. But if a manually-built extender is preferred (ex. to incorporate code changes not included in the latest release jar), provided here are the build instructions.
 
 Requires OpenJDK 17+ and Gradle 8+. Higher OpenJDK versions should also work (although this has not been tested). The official Oracle JDK should also work (although this has not been tested). Lesser versions of OpenJDK and Gradle have not been tested and should not be assumed to work.
 
@@ -41,7 +41,7 @@ Requires OpenJDK 17+ and Gradle 8+. Higher OpenJDK versions should also work (al
 
 ### Loading
 
-Load the ```Burp_JSON_Unicode-Escaper-VERSION.jar``` extender jar file into Burp Suite with type **Java**.
+Load the ```Burp_JSON_Unicode-Escaper-VERSION.jar``` extender jar file into Burp Suite with type **Java**. Alternatively, load the [JSON Unicode-Escaper BApp](https://portswigger.net/bappstore/aebed6627d6348679d6c43f985958eca) from the BApp Store.
 
 ## Usage
 
