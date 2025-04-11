@@ -1,0 +1,13 @@
+Uuid: aebed6627d6348679d6c43f985958eca
+ExtensionType: 1
+Name: JSON Unicode-Escaper
+RepoName: json-unicode-escaper
+ScreenVersion: 0.2
+SerialVersion: 1
+MinPlatformVersion: 19
+ProOnly: False
+Author: Jeffrey Cap
+ShortDescription: Provides JSON Unicode-escaping/unescaping capabilities.
+EntryPoint: build/libs/json-unicode-escaper-0.2.jar
+BuildCommand: ./gradlew fatJar
+SupportedProducts: Pro, Community

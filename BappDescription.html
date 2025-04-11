@@ -1,0 +1,88 @@
+<p>This extension provides UTF-8 JSON Unicode-escaping/unescaping capabilities, as defined in RFC 8259 Section 7.</p>
+
+<h2>Features</h2>
+
+<ul>
+        <li><strong>Manual Escaper/Unescaper Tab:</strong> For escaping and unescaping data manually in a custom Decoder-like tab. Functionality for pasting in files for escaping/unescaping, as well as functionality for copying escaped/unescaped data to files, is included.</li>
+        <li><strong>Context Menu Items:</strong> For escaping and unescaping data in requests/responses on-demand, as well as for sending highlighted text directly to the manual Escaper/Unescaper tab.</li>
+        <li><strong>Intruder Payload Processors:</strong> For automatically escaping and unescaping payloads during Intruder attacks.</li>
+</ul>   
+
+<h2>Usage</h2>
+
+<h3>Manual Escaper/Unescaper Tab</h3>
+<p><strong>Location:</strong> "JSON Unicode-Escaper" tab in Burp Suite.</p>
+
+<h4>Input Options</h4>
+<ul>
+  <li><strong>Paste from Clipboard:</strong> Use <code class="InlineCode">Ctrl+V</code> or click the Paste From Clipboard button.</li>
+  <li><strong>Send from Context Menu:</strong> Highlight text, right-click, and select Send to Manual Escaper/Unescaper.</li>
+  <li><strong>Paste From File:</strong> Use the Paste From File button.</li>
+</ul>
+
+<h4>Processing</h4>
+<p>Select an escaping/unescaping method from the dropdown. The processed result will appear in the output area.</p>
+
+<h4>Output Options</h4>
+<ul>
+  <li><strong>Copy to Clipboard:</strong> Highlight and press <code class="InlineCode">Ctrl+C</code> or use the Copy Output To Clipboard button.</li>
+  <li><strong>Copy to File:</strong> Use the Copy Output To File button.</li>
+</ul>
+
+<h3>Context Menu Integration</h3>
+<p>This extension adds right-click context menu options for requests and responses.</p>
+<ul>
+  <li><strong>Editable Fields:</strong> Selected text is replaced with the escaped/unescaped result.</li>
+  <li><strong>Read-Only Fields:</strong> A popup window displays the result for manual copying.</li>
+  <li><strong>Send to Escaper/Unescaper:</strong> Sends highlighted data to the dedicated tab.</li>
+</ul>
+<p><strong>Note:</strong> Context menu options are not available in Intruder -&gt; Payloads.</p>
+
+<h3>Intruder Payload Processing</h3>
+
+<h4>Setup</h4>
+<ol>
+  <li>Configure your Intruder attack normally.</li>
+  <li>Under Payloads -&gt; Payload Processing, click Add -&gt; Invoke Burp Extension.</li>
+  <li>Select the desired escape/unescape method from the dropdown.</li>
+</ol>
+<p>
+  Payloads are automatically processed by the extension before being sent during the attack.
+</p>
+<p><strong>Note:</strong> Avoid changing custom escape character settings during an active attack.</p>
+
+<h4>Available Methods</h4>
+<ul>
+  <li><strong>JSON-unescape:</strong> Unescapes characters like <code class="InlineCode">\n</code> or <code class="InlineCode">\u0022</code>. Invalid sequences are left unchanged.</li>
+  <li><strong>JSON-escape key chars:</strong> Escapes control characters, quotes, backslashes, and some high-ASCII characters.</li>
+  <li><strong>JSON Unicode-escape key chars:</strong> Same as above, but uses Unicode format (e.g., <code class="InlineCode">\u000a</code>).</li>
+  <li><strong>JSON Unicode-escape all chars:</strong> Escapes every character using Unicode format.</li>
+  <li><strong>JSON Unicode-escape custom chars:</strong> Escapes only user-specified characters. Configurable in the Settings tab.</li>
+</ul>
+
+<h3>Settings Tab Overview</h3>
+
+<h4>JSON Unicode-escape Custom Chars Configuration</h4>
+<ul>
+  <li><strong>Characters:</strong> Directly input specific characters to escape. Updates in real time.</li>
+  <li><strong>Hexadecimal Ranges:</strong> Use 4-digit hex codes (e.g., <code class="InlineCode">003c</code>) or ranges (e.g., <code class="InlineCode">0030-003f</code>). Requires clicking the Update button.</li>
+  <li>Switching between modes automatically converts values between characters and hex.</li>
+  <li>Input is validated with errors highlighted. Sorting and deduplication are built-in.</li>
+  <li>Optionally include JSON key characters (0x00-0x1F, double quote, backslash) using a checkbox.</li>
+</ul>
+<p><strong>Note:</strong> These options are updated live and may impact ongoing Intruder attacks.</p>
+
+<h4>Global Settings</h4>
+<ul>
+  <li><strong>Fine-tune Unescaping:</strong> Helps avoid errors when processing partially unescaped input.</li>
+  <li><strong>Verbose Logging:</strong> Adds additional output to Extender -&gt; Output/Errors tabs.</li>
+</ul>
+
+<h4>Import, Export, Reset</h4>
+<ul>
+  <li><strong>Export:</strong> Save current settings to a JSON file.</li>
+  <li><strong>Import:</strong> Load a settings file into the extender.</li>
+  <li><strong>Reset:</strong> Restore all settings to their default state.</li>
+</ul>
+<p><strong>Note:</strong> Invalid JSON input is rejected. Errors appear in the UI and Extension -&gt; Errors tab.</p>
+
