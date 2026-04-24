@@ -234,6 +234,14 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 		}
 	}
 	
+	private void resetUIElementsAfterImportFailure(String message,Exception ex) {
+		settingsErrorLabel.setText(message);
+		mLogging.logToError(message);
+		if(ex != null && settings.getVerboseLogging()) mLogging.logToError(ex.getMessage(),ex);
+		importSettingsButton.setText(IMPORT_BUTTON_ENABLED_TEXT);
+		importSettingsButton.setEnabled(true);
+	}
+	
 	private void deduplicateSortEscapeChars() {
 		if(inputFormat != CHARS_INPUT_FORMAT) return;
 		
@@ -270,7 +278,7 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 		deduplicateSortButton.setEnabled(true);
 	}
 	
-		private void highlightHexError(String fieldText,String message) {
+	private void highlightHexError(String fieldText,String message) {
 		if(message.indexOf(EscaperUIHelpers.EX_MESSAGE_HEAD)==0) {
 			charsToEscapeField.setText(fieldText);
 			String input = message.substring(EscaperUIHelpers.EX_MESSAGE_HEAD.length());
@@ -287,20 +295,19 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 		errorLabel.setText(ERROR_LABEL_TEXT);
 	}
 	
-	private void documentListenerUpdates(String method) {
+	private void documentListenerUpdates() {
 		if(inputFormat == CHARS_INPUT_FORMAT) {
 			applyButton.setText(APPLY_BUTTON_CHARS_TEXT);
 			applyButton.setEnabled(false);
 			if(includeKeyCharsCheckbox.isSelected()) {
 				settings.setCharsToEscape(charsToEscapeField.getText(),includeKeyCharsCheckbox.isSelected());
-				if(settings.getVerboseLogging()) mLogging.logToOutput("Chars to escape field set in "+method+"() to: "+charsToEscapeField.getText());
+				if(settings.getVerboseLogging()) mLogging.logToOutput("Chars to escape field set to: "+charsToEscapeField.getText());
 			}
 		} else if(inputFormat == HEXADECIMAL_INPUT_FORMAT) {
 			charsToEscapeField.getHighlighter().removeAllHighlights();
 			errorLabel.setText("");
 			applyButton.setEnabled(true);
 		}
-		if(settings.getVerboseLogging()) mLogging.logToOutput(String.format("Escape Characters updated from \"Characters to JSON Unicode-escape\" field%s",String.format(" (%s())",method)));
 	}
 	
 	//ActionListener method
@@ -446,12 +453,19 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 				SwingUtilities.invokeLater(new Runnable() {
 					@Override
 					public void run() {
+						String fieldText = charsToEscapeField.getText(); //save current characters to escape in case import fails
+						
 						importSettingsButton.setText(IMPORT_BUTTON_DISABLED_TEXT);
 						importSettingsButton.setEnabled(false);
 						settingsErrorLabel.setText("");
 						
 						File srcFile = importSettingsChooser.getSelectedFile();
 						String absPath = srcFile.getAbsolutePath();
+						
+						if(srcFile.length()>1048576) { //settings file sizes capped at 1MB
+							resetUIElementsAfterImportFailure(String.format("Settings file %s exceeds 1MB: import aborted!",absPath),null);
+							return;
+						}
 						
 						ByteArrayOutputStream baos = null;
 						FileInputStream fis = null;
@@ -464,109 +478,129 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 								baos.write(buffer,0,read);
 							}
 						} catch(IOException ioe) {
-							settingsErrorLabel.setText(String.format("Error reading from file %s!",absPath));
-							mLogging.logToError(String.format("Error reading from file %s!",absPath));
-							importSettingsButton.setText(IMPORT_BUTTON_ENABLED_TEXT);
-							importSettingsButton.setEnabled(true);
+							resetUIElementsAfterImportFailure(String.format("Error reading from file %s!",absPath),ioe);
 							return;
 						}
 						try {
 							baos.close();
 						} catch (Exception ex) {
-							
+							//don't care about this error
 						}
 						try {
 							fis.close();
 						} catch (Exception ex) {
-							
+							//don't care about this error
 						}
-						
 						JSONObject inSettings = null;
 						try {
 							inSettings = new JSONObject(new String(baos.toByteArray(),StandardCharsets.UTF_8));
 						} catch(JSONException jsonE) {
-							settingsErrorLabel.setText(String.format("Error parsing JSON read from file %s!",absPath));
-							mLogging.logToError(String.format("Error parsing JSON read from file %s!",absPath));
-							if(settings.getVerboseLogging()) mLogging.logToError(jsonE.getMessage(),jsonE);
-							importSettingsButton.setText(IMPORT_BUTTON_ENABLED_TEXT);
-							importSettingsButton.setEnabled(true);
+							resetUIElementsAfterImportFailure(String.format("Error parsing full JSON read from file %s!",absPath),jsonE);
 							return;
 						}
 						
-						try { //parse verbose logging
-							boolean verbose = inSettings.getBoolean(VERBOSE_LOGGING_JSON_KEY);
-							settings.setVerboseLogging(verbose);
-							verboseLoggingCheckbox.setSelected(verbose);
-						} catch(JSONException jsonE) {
-							mLogging.logToError(String.format("Verbose logging setting absent from %s or invalid: skipping import",absPath));
-							if(settings.getVerboseLogging()) mLogging.logToError(jsonE.getMessage(),jsonE);
-						}
-						
-						try { //parse fine-tune unescaping
-							boolean fineTune = inSettings.getBoolean(FINE_TUNE_UNESCAPING_JSON_KEY);
-							settings.setFineTuneUnescaping(fineTune);
-							fineTuneUnescapingCheckbox.setSelected(fineTune);
-						} catch(JSONException jsonE) {
-							mLogging.logToError(String.format("Fine-tune unescaping setting absent from %s or invalid: skipping import",absPath));
-							if(settings.getVerboseLogging()) mLogging.logToError(jsonE.getMessage(),jsonE);
-						}
-						
-						try { //parse input format
-							byte format = (byte) inSettings.getInt(INPUT_FORMAT_JSON_KEY);
-							if(format==HEXADECIMAL_INPUT_FORMAT) {
-								inputFormat = HEXADECIMAL_INPUT_FORMAT;
-							} else {
-								inputFormat = CHARS_INPUT_FORMAT;
+						if(inSettings.has(VERBOSE_LOGGING_JSON_KEY)) { //parse verbose logging
+							try {
+								boolean verbose = inSettings.getBoolean(VERBOSE_LOGGING_JSON_KEY);
+								settings.setVerboseLogging(verbose);
+								verboseLoggingCheckbox.setSelected(verbose);
+							} catch(JSONException jsonE) {
+								resetUIElementsAfterImportFailure(String.format("Error parsing Verbose logging setting present in %s: aborting import!",absPath),jsonE);
+								return;
 							}
-							switchEscapeUIElements(inputFormat);
-						} catch(JSONException jsonE) { //if error, set characters format
-							inputFormat = CHARS_INPUT_FORMAT;
-							switchEscapeUIElements(inputFormat);
-							mLogging.logToError(String.format("Input format setting absent from %s or invalid: setting character input format",absPath));
-							if(settings.getVerboseLogging()) mLogging.logToError(jsonE.getMessage(),jsonE);
+						} else {
+							mLogging.logToError(String.format("Verbose logging setting absent from %s: skipping import of this setting.",absPath));
 						}
 						
-						//parse include key characters and characters to escape
-						String fieldText = charsToEscapeField.getText();
+						
+						if(inSettings.has(FINE_TUNE_UNESCAPING_JSON_KEY)) { //parse fine-tune unescaping
+							try {
+								boolean fineTune = inSettings.getBoolean(FINE_TUNE_UNESCAPING_JSON_KEY);
+								settings.setFineTuneUnescaping(fineTune);
+								fineTuneUnescapingCheckbox.setSelected(fineTune);
+							} catch(JSONException jsonE) {
+								resetUIElementsAfterImportFailure(String.format("Error parsing Fine-tune Unescaping setting present in %s: aborting import!",absPath),jsonE);
+								return;
+							}
+						} else {
+							mLogging.logToError(String.format("Fine-tune Unescaping setting absent from %s: skipping import of this setting.",absPath));
+						}
+						
+						if(inSettings.has(INPUT_FORMAT_JSON_KEY)) { //parse input format: <=0 for characters, >0 for hex ranges; set "in progress" text in characters to escape field
+							try {
+								byte format = (byte) inSettings.getInt(INPUT_FORMAT_JSON_KEY);
+								if(format<=0) {
+									inputFormat = CHARS_INPUT_FORMAT;
+								} else {
+									inputFormat = HEXADECIMAL_INPUT_FORMAT;
+								}
+								switchEscapeUIElements(inputFormat);
+							} catch(JSONException jsonE) { //if error, set characters format
+								inputFormat = CHARS_INPUT_FORMAT;
+								switchEscapeUIElements(inputFormat);
+								mLogging.logToError(String.format("Error parsing Input format setting present in %s: setting character input format",absPath));
+								if(settings.getVerboseLogging()) mLogging.logToError(jsonE.getMessage(),jsonE);
+							}
+						} else {
+							mLogging.logToError(String.format("Input format setting absent from %s: setting Character input format",absPath));
+						}
 						if(inputFormat == CHARS_INPUT_FORMAT) {
 							charsToEscapeField.setText(IMPORTING_ESCAPE_CHARS_TEXT);
 						} else {
 							charsToEscapeField.setText(IMPORTING_ESCAPE_RANGES_TEXT);
 						}
 						charsToEscapeField.setEditable(false);
+						
+						//parse include key characters
 						boolean keyChars = false;
-						String escapeChars = null;
-						try { 
-							keyChars = inSettings.getBoolean(INCLUDE_KEY_CHARS_JSON_KEY);
-							includeKeyCharsCheckbox.setSelected(keyChars);
-						} catch(JSONException jsonE) {
-							mLogging.logToError(String.format("Include Key Characters setting absent from %s or invalid: setting to false",absPath));
-							if(settings.getVerboseLogging()) mLogging.logToError(jsonE.getMessage(),jsonE);
-						}
-						JSONArray escapeCharsJsonArray = null;
-						try {
-							escapeCharsJsonArray = inSettings.getJSONArray(ESCAPE_CHARS_JSON_KEY);
-						} catch(JSONException jsonE) {
-							//no character list found, error reported below
-							if(settings.getVerboseLogging()) mLogging.logToError(jsonE.getMessage(),jsonE);
-						}
-						if(escapeCharsJsonArray!=null && escapeCharsJsonArray.length()!=0) {
-							int i=0;
-							boolean error = false;
-							while(i<escapeCharsJsonArray.length()) {
-								try {
-									int num = escapeCharsJsonArray.getInt(i);
-									if(num<0 || num>65535) throw new NumberFormatException(String.format("%i is outside of character range",num));
-								} catch(JSONException|NumberFormatException ex) {
-									mLogging.logToError(ex.getMessage(),ex);
-									if(settings.getVerboseLogging()) mLogging.logToError(ex.getMessage(),ex);
-									error=true;
-									break;
-								}
-								i++;
+						if(inSettings.has(INCLUDE_KEY_CHARS_JSON_KEY)) {
+							try {
+								keyChars = inSettings.getBoolean(INCLUDE_KEY_CHARS_JSON_KEY);
+								includeKeyCharsCheckbox.setSelected(keyChars);
+							} catch(JSONException jsonE) {
+								resetUIElementsAfterImportFailure(String.format("Error parsing Include Key Characters setting present in %s: aborting import!",absPath),jsonE);
+								charsToEscapeField.setText(fieldText);
+								return;
 							}
-							
-							if(!error) {
+						} else {
+							mLogging.logToError(String.format("Include Key Characters setting absent from %s: setting to false",absPath));
+						}
+						
+						//parse characters to escape
+						String escapeChars = null;
+						if(inSettings.has(ESCAPE_CHARS_JSON_KEY) && !inSettings.isNull(ESCAPE_CHARS_JSON_KEY)) {
+							JSONArray escapeCharsJsonArray = null;
+							try {
+								escapeCharsJsonArray = inSettings.getJSONArray(ESCAPE_CHARS_JSON_KEY);
+							} catch(JSONException jsonE) {
+								resetUIElementsAfterImportFailure(String.format("Error parsing Escape Characters list present in %s: aborting import!",absPath),jsonE);
+								charsToEscapeField.setText(fieldText);
+								return;
+							}
+							if(escapeCharsJsonArray.length()<=65536) { //escape character has max length of 65536 (duplicates are ignored and only 65536 unique characters are allowed)
+								int i=0;
+								boolean error = false;
+								while(i<escapeCharsJsonArray.length()) {
+									try {
+										int num = escapeCharsJsonArray.getInt(i);
+										if(num<0 || num>65535) throw new NumberFormatException(String.format("%i is outside of character range",num));
+									} catch(JSONException|NumberFormatException ex) {
+										if(ex instanceof JSONException) {
+											settingsErrorLabel.setText(String.format("Escape Characters list present in %s contains invalid (non-number) value(s): aborting import!",absPath));
+											mLogging.logToError(String.format("Escape Characters list present in %s contains invalid (non-number) value(s): aborting import!",absPath));
+										} else if(ex instanceof NumberFormatException) {
+											settingsErrorLabel.setText(String.format("Escape Characters list present in %s contains invalid (numbers below 0 or exceeding 65535) value(s): aborting import!",absPath));
+											mLogging.logToError(String.format("Escape Characters list present in %s contains invalid (non-number) value(s): aborting import!",absPath));
+										}
+										if(settings.getVerboseLogging()) mLogging.logToError(ex.getMessage(),ex);
+										importSettingsButton.setText(IMPORT_BUTTON_ENABLED_TEXT);
+										importSettingsButton.setEnabled(true);
+										charsToEscapeField.setText(fieldText);
+										return;
+									}
+									i++;
+								}
+								
 								if(escapeCharsJsonArray.length()>0) {
 									String[] escapeCharsArray = new String[escapeCharsJsonArray.length()];
 									i=0;
@@ -579,23 +613,36 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 									escapeChars = "";
 								}
 							} else {
-								mLogging.logToError(String.format("Escape Character list read from %s contains invalid value(s): skipping import",absPath));
+								resetUIElementsAfterImportFailure(String.format("Escape Character list read from %s exceeds 65536 characters: aborting import!",absPath),null);
 								charsToEscapeField.setText(fieldText);
+								return;
 							}
 						} else {
-							mLogging.logToError(String.format("Invalid or empty escape character list read from %s, or escape character list empty: skipping import",absPath));
+							resetUIElementsAfterImportFailure(String.format("Escape Characters list absent from %s: aborting import!",absPath),null);
 							charsToEscapeField.setText(fieldText);
+							return;
 						}
-						if(escapeChars != null) {
-							settings.setCharsToEscape(escapeChars,keyChars);
-							if(escapeChars.length()>0) {
-								if(inputFormat==HEXADECIMAL_INPUT_FORMAT) {
-									charsToEscapeField.setText(EscaperUIHelpers.convertRangesToText(EscaperUIHelpers.convertCharsToRanges(escapeChars)));
-									applyButton.setEnabled(false);
-								} else if(inputFormat==CHARS_INPUT_FORMAT) {
-									charsToEscapeField.setText(escapeChars);
-								}
+						
+						//set escape characters and 
+						settings.setCharsToEscape(escapeChars,keyChars);
+						if(escapeChars.length()>0) {
+							String uniqEscapeChars = "";
+							for(int l=0;l<escapeChars.length();l++) {
+								String ch = String.valueOf(escapeChars.charAt(l));
+								if(!uniqEscapeChars.contains(ch)) uniqEscapeChars += ch;
 							}
+							char[] uniqChars = uniqEscapeChars.toCharArray();
+							Arrays.sort(uniqChars);
+							escapeChars = new String(uniqChars);
+							
+							if(inputFormat==HEXADECIMAL_INPUT_FORMAT) {
+								charsToEscapeField.setText(EscaperUIHelpers.convertRangesToText(EscaperUIHelpers.convertCharsToRanges(escapeChars)));
+								applyButton.setEnabled(false);
+							} else if(inputFormat==CHARS_INPUT_FORMAT) {
+								charsToEscapeField.setText(escapeChars);
+							}
+						} else {
+							charsToEscapeField.setText("");
 						}
 						
 						charsToEscapeField.setEditable(true);
@@ -606,7 +653,7 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 				});
 			}
 		} else if(source == exportSettingsButton) {
-			int res = exportSettingsChooser.showOpenDialog(null);
+			int res = exportSettingsChooser.showSaveDialog(null);
 			if(res == JFileChooser.APPROVE_OPTION) {
 				File destFile = exportSettingsChooser.getSelectedFile();
 				String absPath = destFile.getAbsolutePath();
@@ -656,17 +703,17 @@ class EscaperSettingsTab extends JPanel implements ActionListener,DocumentListen
 	//DocumentListener methods
 	@Override
 	public void changedUpdate(DocumentEvent e) {
-		documentListenerUpdates("changedUpdate");
+		documentListenerUpdates();
 	}
 	
 	@Override
 	public void insertUpdate(DocumentEvent e) {
-		documentListenerUpdates("insertUpdate");
+		documentListenerUpdates();
 	}
 	
 	@Override	
 	public void removeUpdate(DocumentEvent e) {
-		documentListenerUpdates("removeUpdate");
+		documentListenerUpdates();
 	}
 }
 
