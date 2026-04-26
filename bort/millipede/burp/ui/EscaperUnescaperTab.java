@@ -36,6 +36,7 @@ import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.JScrollPane;
 
 import org.json.JSONException;
 
@@ -119,7 +120,7 @@ class EscaperUnescaperTab extends JPanel implements ActionListener {
 		middlePanel.add(copyClipboardButton);
 		middlePanel.add(copyFileButton);
 		middlePanel.add(clearOutputButton);
-		this.add(middlePanel);
+		this.add(new JScrollPane(middlePanel,JScrollPane.VERTICAL_SCROLLBAR_NEVER,JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED));
 		
 		//output area
 		JPanel outputLabelPanel = new JPanel(new GridLayout(1,2));
